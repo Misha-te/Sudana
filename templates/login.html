@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Sudana</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">Sudana</div>
+        <nav>
+            <a href="{{ url_for('home') }}">Home</a>
+        </nav>
+    </header>
+
+    <main class="form-page">
+        <div class="form-card">
+            <h1>Welcome back <span class="star">★</span></h1>
+            <p class="subtitle">Log in to your Sudana account.</p>
+
+            {% if errors %}
+            <ul class="errors">
+                {% for error in errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('login') }}">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email"
+                       value="{{ email or '' }}" placeholder="you@example.com" required>
+
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password"
+                       placeholder="Your password" required>
+
+                <p class="forgot">
+                    <a href="{{ url_for('forgot_password') }}">Forgot password?</a>
+                </p>
+
+                <button type="submit" class="cta form-submit">Login</button>
+            </form>
+
+            <p class="subtitle">
+                New here? <a href="{{ url_for('signup') }}">Create an account</a>
+            </p>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 Sudana. All rights reserved.</p>
+    </footer>
+</body>
+</html>

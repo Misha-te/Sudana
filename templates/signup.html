@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | Sudana</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">Sudana</div>
+        <nav>
+            <a href="{{ url_for('home') }}">Home</a>
+        </nav>
+    </header>
+
+    <main class="form-page">
+        <div class="form-card">
+            <h1>Create your account <span class="star">★</span></h1>
+            <p class="subtitle">Join Sudana — tell us a little about you.</p>
+
+            {% if errors %}
+            <ul class="errors">
+                {% for error in errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('signup') }}">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email"
+                       value="{{ email or '' }}" placeholder="you@example.com" required>
+
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password"
+                       minlength="8" placeholder="At least 8 characters" required>
+                <small class="hint">Must be at least 8 characters long.</small>
+
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender" required>
+                    <option value="" disabled {{ 'selected' if not gender else '' }}>
+                        Select your gender
+                    </option>
+                    {% set genders = ["Male", "Female", "Other"] %}
+                    {% for g in genders %}
+                    <option value="{{ g }}" {{ 'selected' if gender == g else '' }}>{{ g }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="hometown">Hometown</label>
+                <input type="text" id="hometown" name="hometown" list="towns"
+                       value="{{ hometown or '' }}"
+                       placeholder="Where you call home in South Sudan" required>
+                <datalist id="towns">
+                    <option value="Juba (Central Equatoria)">
+                    <option value="Wau (Western Bahr el Ghazal)">
+                    <option value="Malakal (Upper Nile)">
+                    <option value="Aweil (Northern Bahr el Ghazal)">
+                    <option value="Bor (Jonglei)">
+                    <option value="Bentiu (Unity)">
+                    <option value="Rumbek (Lakes)">
+                    <option value="Torit (Eastern Equatoria)">
+                    <option value="Yambio (Western Equatoria)">
+                    <option value="Kuajok (Warrap)">
+                    <option value="Abyei">
+                </datalist>
+
+                <label for="dob">Date of birth</label>
+                <input type="date" id="dob" name="dob" value="{{ dob or '' }}" required>
+
+                <button type="submit" class="cta form-submit">Sign Up</button>
+            </form>
+
+            <p class="subtitle">
+                <a href="{{ url_for('home') }}">← Back to home</a>
+            </p>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 Sudana. All rights reserved.</p>
+    </footer>
+</body>
+</html>

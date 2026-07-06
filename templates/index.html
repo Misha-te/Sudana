@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome | Sudana</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">Sudana</div>
+        <nav>
+            <a href="/">Home</a>
+            <a href="#about">About</a>
+            <a href="{{ url_for('login') }}">Login</a>
+        </nav>
+    </header>
+
+    <main class="hero">
+        <h1>Welcome to Sudana <span class="star">★</span></h1>
+        <p>We're glad you're here. Explore what we have to offer.</p>
+        <div class="hero-buttons">
+            <a class="cta" href="{{ url_for('signup') }}">Get Started</a>
+            <a class="cta cta-outline" href="{{ url_for('login') }}">Login</a>
+        </div>
+    </main>
+
+    <section id="about" class="section">
+        <h2>About Us</h2>
+        <p>
+            Sudana celebrates the colors and spirit of South Sudan. This is the
+            welcome page — the first thing visitors see when they arrive at the site.
+        </p>
+    </section>
+
+    <footer class="footer">
+        <p>&copy; 2026 Sudana. All rights reserved.</p>
+    </footer>
+</body>
+</html>
