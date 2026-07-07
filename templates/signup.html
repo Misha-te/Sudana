@@ -48,23 +48,39 @@
                     {% endfor %}
                 </select>
 
-                <label for="hometown">Hometown</label>
-                <input type="text" id="hometown" name="hometown" list="towns"
-                       value="{{ hometown or '' }}"
-                       placeholder="Where you call home in South Sudan" required>
-                <datalist id="towns">
-                    <option value="Juba (Central Equatoria)">
-                    <option value="Wau (Western Bahr el Ghazal)">
-                    <option value="Malakal (Upper Nile)">
-                    <option value="Aweil (Northern Bahr el Ghazal)">
-                    <option value="Bor (Jonglei)">
-                    <option value="Bentiu (Unity)">
-                    <option value="Rumbek (Lakes)">
-                    <option value="Torit (Eastern Equatoria)">
-                    <option value="Yambio (Western Equatoria)">
-                    <option value="Kuajok (Warrap)">
-                    <option value="Abyei">
-                </datalist>
+                <div id="hometown-field">
+                    <label for="hometown">Hometown</label>
+                    <input type="text" id="hometown" name="hometown" list="towns"
+                           value="{{ hometown or '' }}"
+                           placeholder="Where you call home in South Sudan"
+                           {{ '' if not_south_sudanese else 'required' }}>
+                    <datalist id="towns">
+                        <option value="Juba (Central Equatoria)">
+                        <option value="Wau (Western Bahr el Ghazal)">
+                        <option value="Malakal (Upper Nile)">
+                        <option value="Aweil (Northern Bahr el Ghazal)">
+                        <option value="Bor (Jonglei)">
+                        <option value="Bentiu (Unity)">
+                        <option value="Rumbek (Lakes)">
+                        <option value="Torit (Eastern Equatoria)">
+                        <option value="Yambio (Western Equatoria)">
+                        <option value="Kuajok (Warrap)">
+                        <option value="Abyei">
+                    </datalist>
+                </div>
+
+                <label class="checkbox-label">
+                    <input type="checkbox" id="not-ss" name="not_south_sudanese"
+                           value="yes" {{ 'checked' if not_south_sudanese else '' }}>
+                    I'm not from South Sudan
+                </label>
+
+                <div id="country-field" style="{{ '' if not_south_sudanese else 'display: none;' }}">
+                    <label for="country">Country</label>
+                    <input type="text" id="country" name="country"
+                           value="{{ country or '' }}" placeholder="Enter your country"
+                           {{ 'required' if not_south_sudanese else '' }}>
+                </div>
 
                 <label for="dob">Date of birth</label>
                 <input type="date" id="dob" name="dob" value="{{ dob or '' }}" required>
@@ -81,5 +97,31 @@
     <footer class="footer">
         <p>&copy; 2026 Sudana. All rights reserved.</p>
     </footer>
+
+    <script>
+        // Swap between the Hometown and Country fields
+        const notSS = document.getElementById("not-ss");
+        const hometownField = document.getElementById("hometown-field");
+        const countryField = document.getElementById("country-field");
+        const hometown = document.getElementById("hometown");
+        const country = document.getElementById("country");
+
+        function toggleHome() {
+            if (notSS.checked) {
+                hometownField.style.display = "none";
+                countryField.style.display = "block";
+                hometown.required = false;
+                country.required = true;
+            } else {
+                hometownField.style.display = "block";
+                countryField.style.display = "none";
+                hometown.required = true;
+                country.required = false;
+            }
+        }
+
+        notSS.addEventListener("change", toggleHome);
+        toggleHome(); // set the correct state on page load
+    </script>
 </body>
 </html>

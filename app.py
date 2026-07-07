@@ -16,6 +16,8 @@ def signup():
         password = request.form.get("password", "")
         gender = request.form.get("gender", "")
         hometown = request.form.get("hometown", "").strip()
+        country = request.form.get("country", "").strip()
+        not_south_sudanese = request.form.get("not_south_sudanese") == "yes"
         dob = request.form.get("dob", "")
 
         # Server-side checks (never trust the browser alone)
@@ -26,7 +28,10 @@ def signup():
             errors.append("Password must be at least 8 characters.")
         if not gender:
             errors.append("Please select your gender.")
-        if not hometown:
+        if not_south_sudanese:
+            if not country:
+                errors.append("Please enter your country.")
+        elif not hometown:
             errors.append("Please tell us your hometown.")
         if not dob:
             errors.append("Please enter your date of birth.")
@@ -39,6 +44,8 @@ def signup():
                 email=email,
                 gender=gender,
                 hometown=hometown,
+                country=country,
+                not_south_sudanese=not_south_sudanese,
                 dob=dob,
             )
 
