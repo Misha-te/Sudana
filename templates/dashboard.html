@@ -9,34 +9,23 @@
 <body>
     <header class="navbar">
         <div class="logo">Sudana</div>
-        <nav>
-            <a href="{{ url_for('home') }}">Log out</a>
-        </nav>
+
+        <div class="nav-icons">
+            <a href="#" class="icon-btn" title="MyGeez — Connections">🤝</a>
+            <a href="#" class="icon-btn" title="Dating">❤️</a>
+            <a href="#" class="icon-btn" title="News &amp; Entertainment">📰</a>
+        </div>
+
+        <div class="nav-right">
+            <a href="{{ url_for('profile', name=username) }}" class="avatar"
+               title="My Profile">{{ username[0]|upper }}</a>
+            <a href="{{ url_for('home') }}" class="logout-link">Log out</a>
+        </div>
     </header>
 
     <main class="dashboard">
         <h1>Welcome back, <span class="username">{{ username }}</span> <span class="star">★</span></h1>
-        <p class="dashboard-subtitle">What would you like to explore today?</p>
-
-        <div class="cards">
-            <a class="card" href="#">
-                <div class="card-icon">🤝</div>
-                <h2>MyGeez</h2>
-                <p>Make connections and meet people in the community.</p>
-            </a>
-
-            <a class="card" href="#">
-                <div class="card-icon">💛</div>
-                <h2>Dating</h2>
-                <p>Find a match and start something special.</p>
-            </a>
-
-            <a class="card" href="#">
-                <div class="card-icon">📰</div>
-                <h2>Entertainment &amp; News</h2>
-                <p>Stay up to date with the latest stories and fun.</p>
-            </a>
-        </div>
+        <p class="dashboard-subtitle">Pick an icon above to get started.</p>
     </main>
 
     <footer class="footer">

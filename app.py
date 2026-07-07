@@ -79,6 +79,13 @@ def login():
     return render_template("login.html", errors=[])
 
 
+@app.route("/profile")
+def profile():
+    # Name is passed along in the link from the dashboard.
+    username = request.args.get("name", "Friend")
+    return render_template("profile.html", username=username)
+
+
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
     if request.method == "POST":

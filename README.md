@@ -13,6 +13,12 @@ palette (black, red, green, blue, and gold).
   - Hometown suggests South Sudan states and major towns
 - **Login page** with a **Forgot password?** link
 - **Forgot-password page** to request a reset link
+- **Home dashboard** (after login) styled like a social app:
+  - Greets the user by name ("Welcome back, ...")
+  - Small round icon buttons in the top bar — 🤝 **MyGeez** (connections),
+    ❤️ **Dating**, and 📰 **News & Entertainment**
+  - A **profile avatar** button that opens the user's profile page
+- **Profile page** showing the user's name and avatar
 
 ## Requirements
 
@@ -57,7 +63,9 @@ Sudana/
 │   ├── signup.html             # sign-up form
 │   ├── login.html              # login form
 │   ├── forgot_password.html    # password reset request
-│   └── success.html            # confirmation page
+│   ├── dashboard.html          # home page after login
+│   ├── profile.html            # user profile page
+│   └── success.html            # sign-up confirmation page
 ├── static/
 │   └── style.css               # styling (South Sudan flag colors)
 └── README.md
@@ -67,8 +75,10 @@ Sudana/
 
 This is an early version. User information **is not saved** yet — the forms
 validate input and show confirmation pages, but there is no database and no real
-authentication. Planned next steps:
+authentication. The **MyGeez**, **Dating**, and **News & Entertainment** icons on
+the dashboard are placeholders and don't open anything yet. Planned next steps:
 
+- Build out the MyGeez, Dating, and News & Entertainment sections
 - Store accounts in a database
 - Securely hash passwords (never store them as plain text)
 - Send real password-reset emails

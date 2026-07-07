@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | Sudana</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">Sudana</div>
+        <nav>
+            <a href="{{ url_for('home') }}">Log out</a>
+        </nav>
+    </header>
+
+    <main class="dashboard">
+        <div class="profile-header">
+            <div class="avatar avatar-large">{{ username[0]|upper }}</div>
+            <h1>{{ username }} <span class="star">★</span></h1>
+            <p class="dashboard-subtitle">Your Sudana profile</p>
+        </div>
+
+        <div class="profile-actions">
+            <a href="#" class="cta">Edit Profile</a>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 Sudana. All rights reserved.</p>
+    </footer>
+</body>
+</html>
