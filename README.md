@@ -13,15 +13,19 @@ palette (black, red, green, blue, and gold).
   - Hometown suggests South Sudan states and major towns
 - **Login page** with a **Forgot password?** link
 - **Forgot-password page** to request a reset link
-- **Home dashboard** (after login) styled like a social app:
-  - Greets the user by name ("Welcome back, ...")
-  - Small round icon buttons in the top bar — 🤝 **MyGeez** (connections),
-    ❤️ **Dating**, and 📰 **News & Entertainment**
-  - A **profile avatar** button that opens the user's profile page
+- **Home dashboard** (after login) styled like a social feed:
+  - `sudana` top bar with search and messages icons
+  - **My Updates** row of story circles
+  - A **"What is in your mind?"** post composer
+  - **My Geez Posts** feed — posts with avatar, text, image, reaction and comment
+    counts, and Like / Comment / Share buttons
+  - A **bottom navigation bar**: Home, 🤝 MyGeez, ❤️ Dating, 🔔 Notifications,
+    and a **Profile** avatar
 - **Profile page** showing the user's name and avatar
   - **Change your profile picture** — asks for photo-access permission the first
     time (phone-style prompt), then opens your device's photo library/camera,
     uploads the image, and shows it everywhere (profile + dashboard avatars)
+  - The permission choice is **remembered on the server**, so it only asks once
 
 ## Requirements
 
@@ -72,6 +76,8 @@ Sudana/
 ├── static/
 │   ├── style.css               # styling (South Sudan flag colors)
 │   └── uploads/                # uploaded profile pictures (created on first upload)
+├── data/
+│   └── permissions.json        # remembers photo-access permission (auto-created)
 └── README.md
 ```
 
