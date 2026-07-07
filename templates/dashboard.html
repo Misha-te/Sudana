@@ -6,30 +6,139 @@
     <title>Home | Sudana</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <header class="navbar">
-        <div class="logo">Sudana</div>
-
-        <div class="nav-icons">
-            <a href="#" class="icon-btn" title="MyGeez — Connections">🤝</a>
-            <a href="#" class="icon-btn" title="Dating">❤️</a>
-            <a href="#" class="icon-btn" title="News &amp; Entertainment">📰</a>
-        </div>
-
-        <div class="nav-right">
-            <a href="{{ url_for('profile', name=username) }}" class="avatar"
-               title="My Profile">{{ username[0]|upper }}</a>
-            <a href="{{ url_for('home') }}" class="logout-link">Log out</a>
+<body class="app-body">
+    <!-- Top bar -->
+    <header class="topbar">
+        <button class="hamburger" title="Menu">&#9776;</button>
+        <div class="brand">sudana</div>
+        <div class="topbar-actions">
+            <a href="#" class="round-icon" title="Search">&#128269;</a>
+            <a href="#" class="round-icon" title="Messages">&#128172;</a>
         </div>
     </header>
 
-    <main class="dashboard">
-        <h1>Welcome back, <span class="username">{{ username }}</span> <span class="star">★</span></h1>
-        <p class="dashboard-subtitle">Pick an icon above to get started.</p>
+    <main class="feed">
+        <!-- My Updates (stories) -->
+        <section class="updates">
+            <h2 class="section-title">My Updates</h2>
+            <div class="stories">
+                <div class="story">
+                    <div class="add-circle">+</div>
+                    <span>Add to Update</span>
+                </div>
+                <div class="story">
+                    <div class="story-ring">
+                        <div class="story-avatar grad-user">{{ username[0]|upper }}</div>
+                    </div>
+                    <span>Your Update</span>
+                </div>
+                <div class="story">
+                    <div class="story-ring">
+                        <div class="story-avatar grad-sunset">A</div>
+                    </div>
+                    <span>Awan's Update</span>
+                </div>
+                <div class="story">
+                    <div class="story-ring">
+                        <div class="story-avatar grad-mountain">M</div>
+                    </div>
+                    <span>Maggie's Update</span>
+                </div>
+                <div class="story">
+                    <div class="story-ring">
+                        <div class="story-avatar grad-group">J</div>
+                    </div>
+                    <span>John's Update</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Post composer -->
+        <div class="composer">
+            <div class="avatar-sm grad-user">{{ username[0]|upper }}</div>
+            <input type="text" placeholder="What is in your mind?">
+        </div>
+
+        <!-- Feed -->
+        <div class="posts-head">
+            <h2 class="section-title">My Geez Posts</h2>
+            <span class="sort">Most Recent &#9662;</span>
+        </div>
+
+        <!-- Post 1 -->
+        <article class="post">
+            <header class="post-head">
+                <div class="avatar-sm grad-sunset">A</div>
+                <div class="post-meta">
+                    <strong>Awan</strong>
+                    <span>2h &#127760;</span>
+                </div>
+                <button class="post-menu" title="More">&#8942;</button>
+            </header>
+            <p class="post-text">
+                Grateful for another beautiful day.<br>
+                Keep pushing, stay humble. &#128153;
+            </p>
+            <div class="post-image grad-sunset-wide"></div>
+            <div class="post-stats">
+                <span class="reactions">&#128077;&#10084;&#65039;&#128558; 128</span>
+                <span class="comments">12 Comments</span>
+            </div>
+            <div class="post-actions">
+                <button>&#128077; Like</button>
+                <button>&#128172; Comment</button>
+                <button>&#10150; Share</button>
+            </div>
+        </article>
+
+        <!-- Post 2 -->
+        <article class="post">
+            <header class="post-head">
+                <div class="avatar-sm grad-mountain">M</div>
+                <div class="post-meta">
+                    <strong>Maggie</strong>
+                    <span>4h &#128101;</span>
+                </div>
+                <button class="post-menu" title="More">&#8942;</button>
+            </header>
+            <p class="post-text">
+                Coffee, books, and good music &#9749;&#127911;&#10024;
+            </p>
+            <div class="post-image grad-forest"></div>
+            <div class="post-stats">
+                <span class="reactions">&#128077;&#10084;&#65039; 86</span>
+                <span class="comments">5 Comments</span>
+            </div>
+            <div class="post-actions">
+                <button>&#128077; Like</button>
+                <button>&#128172; Comment</button>
+                <button>&#10150; Share</button>
+            </div>
+        </article>
     </main>
 
-    <footer class="footer">
-        <p>&copy; 2026 Sudana. All rights reserved.</p>
-    </footer>
+    <!-- Bottom navigation -->
+    <nav class="bottom-nav">
+        <a href="{{ url_for('login') }}" class="active">
+            <span class="nav-ico">&#127968;</span>
+            <span>Home</span>
+        </a>
+        <a href="#">
+            <span class="nav-ico">&#129309;</span>
+            <span>MyGeez</span>
+        </a>
+        <a href="#">
+            <span class="nav-ico">&#10084;&#65039;</span>
+            <span>Dating</span>
+        </a>
+        <a href="#">
+            <span class="nav-ico">&#128276;</span>
+            <span>Notifications</span>
+        </a>
+        <a href="{{ url_for('profile', name=username) }}">
+            <span class="nav-avatar grad-user">{{ username[0]|upper }}</span>
+            <span>Profile</span>
+        </a>
+    </nav>
 </body>
 </html>
