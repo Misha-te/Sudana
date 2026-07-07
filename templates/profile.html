@@ -10,24 +10,84 @@
     <header class="navbar">
         <div class="logo">Sudana</div>
         <nav>
+            <a href="{{ url_for('login') }}">Home</a>
             <a href="{{ url_for('home') }}">Log out</a>
         </nav>
     </header>
 
     <main class="dashboard">
         <div class="profile-header">
-            <div class="avatar avatar-large">{{ username[0]|upper }}</div>
+            <div class="avatar-wrap">
+                <div class="avatar avatar-large"
+                     {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>
+                    {{ username[0]|upper }}
+                </div>
+                <button type="button" class="camera-btn" onclick="changePhoto()" title="Change photo">&#128247;</button>
+            </div>
+
             <h1>{{ username }} <span class="star">★</span></h1>
             <p class="dashboard-subtitle">Your Sudana profile</p>
         </div>
 
         <div class="profile-actions">
-            <a href="#" class="cta">Edit Profile</a>
+            <button type="button" class="cta" onclick="changePhoto()">Change profile picture</button>
         </div>
+
+        <!-- Hidden form that actually uploads the chosen photo -->
+        <form id="photo-form" method="POST" action="{{ url_for('upload_photo') }}"
+              enctype="multipart/form-data">
+            <input type="hidden" name="name" value="{{ username }}">
+            <input type="file" id="photo-input" name="photo" accept="image/*" hidden>
+        </form>
     </main>
+
+    <!-- Permission prompt (shown the first time only) -->
+    <div id="permission-overlay" class="overlay" hidden>
+        <div class="permission-box">
+            <div class="permission-icon">&#128247;</div>
+            <h2>Allow &ldquo;Sudana&rdquo; to access your photos?</h2>
+            <p>Sudana needs access to your photos so you can choose a profile picture.</p>
+            <div class="permission-buttons">
+                <button type="button" class="btn-deny" onclick="denyPermission()">Don't Allow</button>
+                <button type="button" class="btn-allow" onclick="allowPermission()">Allow</button>
+            </div>
+        </div>
+    </div>
 
     <footer class="footer">
         <p>&copy; 2026 Sudana. All rights reserved.</p>
     </footer>
+
+    <script>
+        const fileInput = document.getElementById("photo-input");
+        const photoForm = document.getElementById("photo-form");
+        const overlay = document.getElementById("permission-overlay");
+
+        // Tap the camera / button: ask permission the first time, then open the picker
+        function changePhoto() {
+            if (localStorage.getItem("photoPermission") === "granted") {
+                fileInput.click();
+            } else {
+                overlay.hidden = false;
+            }
+        }
+
+        function allowPermission() {
+            localStorage.setItem("photoPermission", "granted");
+            overlay.hidden = true;
+            fileInput.click(); // opens the phone's photo library / camera
+        }
+
+        function denyPermission() {
+            overlay.hidden = true;
+        }
+
+        // Once a photo is chosen, upload it right away
+        fileInput.addEventListener("change", function () {
+            if (fileInput.files.length > 0) {
+                photoForm.submit();
+            }
+        });
+    </script>
 </body>
 </html>

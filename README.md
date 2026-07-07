@@ -19,6 +19,9 @@ palette (black, red, green, blue, and gold).
     ❤️ **Dating**, and 📰 **News & Entertainment**
   - A **profile avatar** button that opens the user's profile page
 - **Profile page** showing the user's name and avatar
+  - **Change your profile picture** — asks for photo-access permission the first
+    time (phone-style prompt), then opens your device's photo library/camera,
+    uploads the image, and shows it everywhere (profile + dashboard avatars)
 
 ## Requirements
 
@@ -67,7 +70,8 @@ Sudana/
 │   ├── profile.html            # user profile page
 │   └── success.html            # sign-up confirmation page
 ├── static/
-│   └── style.css               # styling (South Sudan flag colors)
+│   ├── style.css               # styling (South Sudan flag colors)
+│   └── uploads/                # uploaded profile pictures (created on first upload)
 └── README.md
 ```
 

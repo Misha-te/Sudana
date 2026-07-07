@@ -28,7 +28,8 @@
                 </div>
                 <div class="story">
                     <div class="story-ring">
-                        <div class="story-avatar grad-user">{{ username[0]|upper }}</div>
+                        <div class="story-avatar grad-user"
+                             {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ username[0]|upper }}</div>
                     </div>
                     <span>Your Update</span>
                 </div>
@@ -55,7 +56,8 @@
 
         <!-- Post composer -->
         <div class="composer">
-            <div class="avatar-sm grad-user">{{ username[0]|upper }}</div>
+            <div class="avatar-sm grad-user"
+                 {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ username[0]|upper }}</div>
             <input type="text" placeholder="What is in your mind?">
         </div>
 
@@ -136,7 +138,8 @@
             <span>Notifications</span>
         </a>
         <a href="{{ url_for('profile', name=username) }}">
-            <span class="nav-avatar grad-user">{{ username[0]|upper }}</span>
+            <span class="nav-avatar grad-user"
+                  {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ username[0]|upper }}</span>
             <span>Profile</span>
         </a>
     </nav>
