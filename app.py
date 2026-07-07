@@ -72,7 +72,9 @@ def login():
             return render_template("login.html", errors=errors, email=email)
 
         # In a real app you'd check these credentials against a database here.
-        return render_template("success.html", email=email)
+        # Use the part of the email before "@" as a friendly display name.
+        username = email.split("@")[0]
+        return render_template("dashboard.html", username=username)
 
     return render_template("login.html", errors=[])
 

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home | Sudana</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">Sudana</div>
+        <nav>
+            <a href="{{ url_for('home') }}">Log out</a>
+        </nav>
+    </header>
+
+    <main class="dashboard">
+        <h1>Welcome back, <span class="username">{{ username }}</span> <span class="star">★</span></h1>
+        <p class="dashboard-subtitle">What would you like to explore today?</p>
+
+        <div class="cards">
+            <a class="card" href="#">
+                <div class="card-icon">🤝</div>
+                <h2>MyGeez</h2>
+                <p>Make connections and meet people in the community.</p>
+            </a>
+
+            <a class="card" href="#">
+                <div class="card-icon">💛</div>
+                <h2>Dating</h2>
+                <p>Find a match and start something special.</p>
+            </a>
+
+            <a class="card" href="#">
+                <div class="card-icon">📰</div>
+                <h2>Entertainment &amp; News</h2>
+                <p>Stay up to date with the latest stories and fun.</p>
+            </a>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 Sudana. All rights reserved.</p>
+    </footer>
+</body>
+</html>

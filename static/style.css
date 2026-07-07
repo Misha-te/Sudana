@@ -261,6 +261,80 @@ body {
     margin-bottom: 1.25rem;
 }
 
+/* Dashboard (logged-in home) */
+.dashboard {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem;
+    text-align: center;
+    min-height: calc(100vh - 140px);
+}
+
+.dashboard h1 {
+    font-size: 2.4rem;
+    color: #000;
+    margin-bottom: 0.5rem;
+}
+
+.dashboard .username {
+    color: #078930;
+}
+
+.dashboard .star {
+    color: #fcdd09;
+}
+
+.dashboard-subtitle {
+    color: #6b7280;
+    font-size: 1.1rem;
+    margin-bottom: 3rem;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+}
+
+.card {
+    display: block;
+    text-decoration: none;
+    color: #1f2937;
+    background: #fff;
+    padding: 2.5rem 1.5rem;
+    border-radius: 16px;
+    border-top: 6px solid #0f47af;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:nth-child(2) {
+    border-top-color: #da121a;
+}
+
+.card:nth-child(3) {
+    border-top-color: #078930;
+}
+
+.card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
+}
+
+.card-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.card h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.card p {
+    color: #6b7280;
+}
+
 /* Footer */
 .footer {
     text-align: center;
