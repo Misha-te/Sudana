@@ -1,3 +1,4 @@
+import json
 import os
 
 from flask import Flask, redirect, render_template, request, url_for
@@ -9,6 +10,29 @@ app = Flask(__name__)
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+# Remembers which users have granted photo-access permission (so we only ask once)
+PERMISSIONS_FILE = os.path.join("data", "permissions.json")
+
+
+def load_permissions():
+    try:
+        with open(PERMISSIONS_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def grant_permission(username):
+    perms = load_permissions()
+    perms[username] = True
+    os.makedirs(os.path.dirname(PERMISSIONS_FILE), exist_ok=True)
+    with open(PERMISSIONS_FILE, "w") as f:
+        json.dump(perms, f)
+
+
+def has_photo_permission(username):
+    return load_permissions().get(username, False)
 
 
 def find_profile_photo(username):
@@ -111,14 +135,28 @@ def profile():
     # Name is passed along in the link from the dashboard.
     username = request.args.get("name", "Friend")
     return render_template(
-        "profile.html", username=username, photo_url=photo_url_for(username)
+        "profile.html",
+        username=username,
+        photo_url=photo_url_for(username),
+        photo_permission=has_photo_permission(username),
     )
+
+
+@app.route("/grant-photo-permission", methods=["POST"])
+def grant_photo_permission():
+    username = request.form.get("name", "")
+    if username:
+        grant_permission(username)
+    return ("", 204)
 
 
 @app.route("/upload-photo", methods=["POST"])
 def upload_photo():
     username = request.form.get("name", "Friend")
     file = request.files.get("photo")
+
+    # Uploading a photo means permission was granted — remember it.
+    grant_permission(username)
 
     if file and file.filename and "." in file.filename:
         ext = file.filename.rsplit(".", 1)[1].lower()

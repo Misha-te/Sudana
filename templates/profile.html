@@ -62,10 +62,14 @@
         const fileInput = document.getElementById("photo-input");
         const photoForm = document.getElementById("photo-form");
         const overlay = document.getElementById("permission-overlay");
+        const username = "{{ username }}";
+
+        // The server remembers if this user already allowed photo access
+        const alreadyAllowed = {{ 'true' if photo_permission else 'false' }};
 
         // Tap the camera / button: ask permission the first time, then open the picker
         function changePhoto() {
-            if (localStorage.getItem("photoPermission") === "granted") {
+            if (alreadyAllowed || localStorage.getItem("photoPermission") === "granted") {
                 fileInput.click();
             } else {
                 overlay.hidden = false;
@@ -75,6 +79,11 @@
         function allowPermission() {
             localStorage.setItem("photoPermission", "granted");
             overlay.hidden = true;
+
+            // Remember the choice on the server too, so it never asks again
+            const data = new URLSearchParams({ name: username });
+            fetch("{{ url_for('grant_photo_permission') }}", { method: "POST", body: data });
+
             fileInput.click(); // opens the phone's photo library / camera
         }
 
