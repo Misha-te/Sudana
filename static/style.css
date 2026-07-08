@@ -473,7 +473,8 @@ body {
 }
 
 .profile-card textarea,
-.profile-card select {
+.profile-card select,
+.profile-card input {
     width: 100%;
     padding: 0.7rem 0.9rem;
     border: 1px solid #d1d5db;
@@ -484,7 +485,8 @@ body {
 }
 
 .profile-card textarea:focus,
-.profile-card select:focus {
+.profile-card select:focus,
+.profile-card input:focus {
     outline: none;
     border-color: #078930;
 }
