@@ -35,6 +35,12 @@
             <span class="category-badge">{{ user.category }}</span>
             {% endif %}
 
+            {% if user.bio %}
+            <p class="bio">{{ user.bio }}</p>
+            {% elif is_owner %}
+            <p class="bio muted">Add a bio to tell people about yourself.</p>
+            {% endif %}
+
             <div class="stats">
                 <div class="stat">
                     <strong>{{ geez_count }}</strong>
@@ -48,39 +54,19 @@
                 {% endif %}
             </div>
 
-            {% if user.bio %}
-            <p class="bio">{{ user.bio }}</p>
-            {% elif is_owner %}
-            <p class="bio muted">Add a bio to tell people about yourself.</p>
-            {% endif %}
-
             <div class="detail-row">
                 <span>Gender</span>
                 <strong>{{ user.gender }}</strong>
             </div>
+            <div class="detail-row">
+                <span>Hometown</span>
+                <strong>{{ user.hometown }}</strong>
+            </div>
+
+            {% if is_owner %}
+            <a href="{{ url_for('edit_profile') }}" class="cta form-submit">Edit profile</a>
+            {% endif %}
         </div>
-
-        {% if is_owner %}
-        <!-- Edit profile (owner only) -->
-        <div class="profile-card">
-            <h2 class="section-title">Edit profile</h2>
-            <form method="POST" action="{{ url_for('update_profile') }}">
-                <label for="bio">Bio</label>
-                <textarea id="bio" name="bio" rows="3"
-                          placeholder="Write something about yourself...">{{ user.bio }}</textarea>
-
-                <label for="category">Category</label>
-                <select id="category" name="category">
-                    <option value="">Choose a category</option>
-                    {% for c in categories %}
-                    <option value="{{ c }}" {{ 'selected' if user.category == c else '' }}>{{ c }}</option>
-                    {% endfor %}
-                </select>
-
-                <button type="submit" class="cta form-submit">Save</button>
-            </form>
-        </div>
-        {% endif %}
 
         <!-- My Posts -->
         <div class="profile-card">

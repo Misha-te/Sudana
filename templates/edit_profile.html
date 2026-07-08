@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile | Sudana</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="app-body">
+    <header class="topbar">
+        <a href="{{ url_for('profile') }}" class="hamburger back-link" title="Back">&#8592;</a>
+        <div class="brand">sudana</div>
+        <div class="topbar-actions">
+            <a href="{{ url_for('logout') }}" class="logout-top">Log out</a>
+        </div>
+    </header>
+
+    <main class="feed">
+        <div class="profile-card">
+            <h2 class="section-title">Edit profile</h2>
+
+            {% if errors %}
+            <ul class="errors">
+                {% for error in errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('update_profile') }}">
+                <label for="category">Category</label>
+                <select id="category" name="category">
+                    <option value="">Choose a category</option>
+                    {% for c in categories %}
+                    <option value="{{ c }}" {{ 'selected' if user.category == c else '' }}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" rows="4"
+                          placeholder="Write something about yourself...">{{ user.bio }}</textarea>
+                <small class="hint">
+                    <span id="word-count">0</span> / {{ bio_word_limit }} words
+                </small>
+
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender">
+                    {% for g in genders %}
+                    <option value="{{ g }}" {{ 'selected' if user.gender == g else '' }}>{{ g }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="hometown">Hometown</label>
+                <input type="text" id="hometown" name="hometown"
+                       value="{{ user.hometown }}" placeholder="Where you call home">
+
+                <button type="submit" class="cta form-submit">Save</button>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        const bio = document.getElementById("bio");
+        const wordCount = document.getElementById("word-count");
+        const LIMIT = {{ bio_word_limit }};
+
+        function countWords(text) {
+            const words = text.trim().split(/\s+/).filter(Boolean);
+            return words.length;
+        }
+
+        function updateCount() {
+            const n = countWords(bio.value);
+            wordCount.textContent = n;
+            // Turn the counter red once the limit is passed
+            wordCount.parentElement.style.color = n > LIMIT ? "#da121a" : "";
+        }
+
+        bio.addEventListener("input", updateCount);
+        updateCount(); // show the count for any existing bio on load
+    </script>
+</body>
+</html>
