@@ -9,10 +9,10 @@
     "dob": "2006-02-02",
     "hometown": "Bor (Jonglei)",
     "bio": "Bio",
-    "category": "Student",
+    "category": "Musician",
     "geez": [],
     "pending_sent": [],
     "posts": [],
-    "photo_permission": false
+    "photo_permission": true
   }
 }
