@@ -14,5 +14,21 @@
     "pending_sent": [],
     "posts": [],
     "photo_permission": true
+  },
+  "nyla": {
+    "first_name": "Nyla",
+    "last_name": "Deng",
+    "username": "nyla",
+    "email": "nyla@x.com",
+    "password_hash": "scrypt:32768:8:1$C3AGpyZn9FZd8BRu$108e10a4fc1562b12d52a57c879d089bbca6b3428f2f9e925155e18bc2f126c1b07e7635543361fc741cc8d923541890220c89bd44103e9a4b30c350667a3ddb",
+    "gender": "Female",
+    "dob": "1998-03-03",
+    "hometown": "Rumbek",
+    "bio": "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word",
+    "category": "Student",
+    "geez": [],
+    "pending_sent": [],
+    "posts": [],
+    "photo_permission": false
   }
 }
