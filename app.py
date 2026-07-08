@@ -26,6 +26,12 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 # Simple JSON "database" of user accounts, keyed by username
 USERS_FILE = os.path.join("data", "users.json")
 
+# Maximum number of words allowed in a bio
+BIO_WORD_LIMIT = 105
+
+# Gender options a user can pick
+GENDERS = ["Male", "Female", "Other"]
+
 # Categories a user can pick for their profile
 CATEGORIES = [
     "Student",
@@ -287,17 +293,56 @@ def grant_photo_permission():
     return ("", 204)
 
 
+@app.route("/edit-profile")
+def edit_profile():
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+    return render_template(
+        "edit_profile.html",
+        user=user,
+        categories=CATEGORIES,
+        genders=GENDERS,
+        bio_word_limit=BIO_WORD_LIMIT,
+        errors=[],
+    )
+
+
 @app.route("/update-profile", methods=["POST"])
 def update_profile():
     user = current_user()
     if not user:
         return redirect(url_for("login"))
 
+    bio = request.form.get("bio", "").strip()
+    category = request.form.get("category", "")
+    gender = request.form.get("gender", "")
+    hometown = request.form.get("hometown", "").strip()
+
+    errors = []
+    if len(bio.split()) > BIO_WORD_LIMIT:
+        errors.append(f"Your bio must be {BIO_WORD_LIMIT} words or fewer.")
+
+    if errors:
+        # Keep what they typed and send them back to the edit page
+        edited = dict(user)
+        edited.update(bio=bio, category=category, gender=gender, hometown=hometown)
+        return render_template(
+            "edit_profile.html",
+            user=edited,
+            categories=CATEGORIES,
+            genders=GENDERS,
+            bio_word_limit=BIO_WORD_LIMIT,
+            errors=errors,
+        )
+
     users = load_users()
     record = users[user["username"]]
-    record["bio"] = request.form.get("bio", "").strip()
-    category = request.form.get("category", "")
+    record["bio"] = bio
     record["category"] = category if category in CATEGORIES else ""
+    if gender in GENDERS:
+        record["gender"] = gender
+    record["hometown"] = hometown
     save_users(users)
 
     return redirect(url_for("profile"))
