@@ -1,0 +1,18 @@
+{
+  "Misha_Awan": {
+    "first_name": "Ngina",
+    "last_name": "Awan",
+    "username": "Misha_Awan",
+    "email": "mawan@macalester.edu",
+    "password_hash": "scrypt:32768:8:1$d8T5XDbWXF2e91UV$ed9af3dc561bb10cf60c9f9d58e502ae2f668ba53dcff8f2bd72883b4696b2a028340f178014e24cbdd67c41a4501577615830cc8247a6176fd1669f035c0fbc",
+    "gender": "Male",
+    "dob": "2006-02-02",
+    "hometown": "Bor (Jonglei)",
+    "bio": "Bio",
+    "category": "Student",
+    "geez": [],
+    "pending_sent": [],
+    "posts": [],
+    "photo_permission": false
+  }
+}
