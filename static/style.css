@@ -373,6 +373,129 @@ body {
     background: #0d3a8f;
 }
 
+/* Profile cards */
+.profile-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.profile-main {
+    text-align: center;
+}
+
+.back-link {
+    color: #111;
+    font-size: 1.4rem;
+    text-decoration: none;
+}
+
+.logout-top {
+    color: #0f47af;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.profile-name {
+    font-size: 1.5rem;
+    color: #111;
+    margin-top: 0.25rem;
+}
+
+.profile-username {
+    color: #0f47af;
+    margin-bottom: 0.75rem;
+}
+
+.category-badge {
+    display: inline-block;
+    background: #e7f0ff;
+    color: #0f47af;
+    padding: 0.25rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.stats {
+    display: flex;
+    justify-content: center;
+    gap: 2.5rem;
+    margin: 1.25rem 0;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat strong {
+    font-size: 1.3rem;
+    color: #111;
+}
+
+.stat span {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.bio {
+    color: #333;
+    margin: 1rem 0;
+}
+
+.muted {
+    color: #9ca3af;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #eee;
+    padding-top: 0.8rem;
+    margin-top: 0.8rem;
+    text-align: left;
+}
+
+.detail-row span {
+    color: #6b7280;
+}
+
+.profile-card label {
+    display: block;
+    font-weight: 600;
+    margin: 0.8rem 0 0.4rem;
+    color: #1f2937;
+}
+
+.profile-card textarea,
+.profile-card select {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.profile-card textarea:focus,
+.profile-card select:focus {
+    outline: none;
+    border-color: #078930;
+}
+
+.mini-post {
+    text-align: left;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid #eee;
+    color: #1f2937;
+}
+
 /* Permission prompt (phone-style) */
 .overlay {
     position: fixed;

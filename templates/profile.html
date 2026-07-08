@@ -3,43 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile | Sudana</title>
+    <title>{{ user.first_name }} {{ user.last_name }} | Sudana</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <header class="navbar">
-        <div class="logo">Sudana</div>
-        <nav>
-            <a href="{{ url_for('login') }}">Home</a>
-            <a href="{{ url_for('home') }}">Log out</a>
-        </nav>
+<body class="app-body">
+    <header class="topbar">
+        <a href="{{ url_for('dashboard') }}" class="hamburger back-link" title="Back">&#8592;</a>
+        <div class="brand">sudana</div>
+        <div class="topbar-actions">
+            <a href="{{ url_for('logout') }}" class="logout-top">Log out</a>
+        </div>
     </header>
 
-    <main class="dashboard">
-        <div class="profile-header">
+    <main class="feed">
+        <!-- Main profile card -->
+        <div class="profile-card profile-main">
             <div class="avatar-wrap">
-                <div class="avatar avatar-large"
+                <div class="avatar avatar-large grad-user"
                      {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>
-                    {{ username[0]|upper }}
+                    {{ user.first_name[0]|upper }}
                 </div>
+                {% if is_owner %}
                 <button type="button" class="camera-btn" onclick="changePhoto()" title="Change photo">&#128247;</button>
+                {% endif %}
             </div>
 
-            <h1>{{ username }} <span class="star">★</span></h1>
-            <p class="dashboard-subtitle">Your Sudana profile</p>
+            <h1 class="profile-name">{{ user.first_name }} {{ user.last_name }}</h1>
+            <p class="profile-username">@{{ user.username }}</p>
+
+            {% if user.category %}
+            <span class="category-badge">{{ user.category }}</span>
+            {% endif %}
+
+            <div class="stats">
+                <div class="stat">
+                    <strong>{{ geez_count }}</strong>
+                    <span>MyGeez</span>
+                </div>
+                {% if is_owner %}
+                <div class="stat">
+                    <strong>{{ pending_count }}</strong>
+                    <span>Pending sent</span>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if user.bio %}
+            <p class="bio">{{ user.bio }}</p>
+            {% elif is_owner %}
+            <p class="bio muted">Add a bio to tell people about yourself.</p>
+            {% endif %}
+
+            <div class="detail-row">
+                <span>Gender</span>
+                <strong>{{ user.gender }}</strong>
+            </div>
         </div>
 
-        <div class="profile-actions">
-            <button type="button" class="cta" onclick="changePhoto()">Change profile picture</button>
-        </div>
+        {% if is_owner %}
+        <!-- Edit profile (owner only) -->
+        <div class="profile-card">
+            <h2 class="section-title">Edit profile</h2>
+            <form method="POST" action="{{ url_for('update_profile') }}">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" rows="3"
+                          placeholder="Write something about yourself...">{{ user.bio }}</textarea>
 
-        <!-- Hidden form that actually uploads the chosen photo -->
-        <form id="photo-form" method="POST" action="{{ url_for('upload_photo') }}"
-              enctype="multipart/form-data">
-            <input type="hidden" name="name" value="{{ username }}">
-            <input type="file" id="photo-input" name="photo" accept="image/*" hidden>
-        </form>
+                <label for="category">Category</label>
+                <select id="category" name="category">
+                    <option value="">Choose a category</option>
+                    {% for c in categories %}
+                    <option value="{{ c }}" {{ 'selected' if user.category == c else '' }}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" class="cta form-submit">Save</button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- My Posts -->
+        <div class="profile-card">
+            <h2 class="section-title">
+                {% if is_owner %}My Posts{% else %}{{ user.first_name }}'s Posts{% endif %}
+            </h2>
+            {% if user.posts %}
+                {% for post in user.posts %}
+                <div class="mini-post">{{ post }}</div>
+                {% endfor %}
+            {% else %}
+            <p class="muted">No posts yet.</p>
+            {% endif %}
+        </div>
     </main>
+
+    {% if is_owner %}
+    <!-- Hidden form that uploads the chosen photo -->
+    <form id="photo-form" method="POST" action="{{ url_for('upload_photo') }}"
+          enctype="multipart/form-data">
+        <input type="file" id="photo-input" name="photo" accept="image/*" hidden>
+    </form>
 
     <!-- Permission prompt (shown the first time only) -->
     <div id="permission-overlay" class="overlay" hidden>
@@ -53,21 +116,42 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
-    <footer class="footer">
-        <p>&copy; 2026 Sudana. All rights reserved.</p>
-    </footer>
+    <!-- Bottom navigation -->
+    <nav class="bottom-nav">
+        <a href="{{ url_for('dashboard') }}">
+            <span class="nav-ico">&#127968;</span>
+            <span>Home</span>
+        </a>
+        <a href="#">
+            <span class="nav-ico">&#129309;</span>
+            <span>MyGeez</span>
+        </a>
+        <a href="#">
+            <span class="nav-ico">&#10084;&#65039;</span>
+            <span>Dating</span>
+        </a>
+        <a href="#">
+            <span class="nav-ico">&#128276;</span>
+            <span>Notifications</span>
+        </a>
+        <a href="{{ url_for('profile') }}" class="active">
+            <span class="nav-avatar grad-user"
+                  {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ user.first_name[0]|upper }}</span>
+            <span>Profile</span>
+        </a>
+    </nav>
 
+    {% if is_owner %}
     <script>
         const fileInput = document.getElementById("photo-input");
         const photoForm = document.getElementById("photo-form");
         const overlay = document.getElementById("permission-overlay");
-        const username = "{{ username }}";
 
         // The server remembers if this user already allowed photo access
         const alreadyAllowed = {{ 'true' if photo_permission else 'false' }};
 
-        // Tap the camera / button: ask permission the first time, then open the picker
         function changePhoto() {
             if (alreadyAllowed || localStorage.getItem("photoPermission") === "granted") {
                 fileInput.click();
@@ -79,11 +163,8 @@
         function allowPermission() {
             localStorage.setItem("photoPermission", "granted");
             overlay.hidden = true;
-
             // Remember the choice on the server too, so it never asks again
-            const data = new URLSearchParams({ name: username });
-            fetch("{{ url_for('grant_photo_permission') }}", { method: "POST", body: data });
-
+            fetch("{{ url_for('grant_photo_permission') }}", { method: "POST" });
             fileInput.click(); // opens the phone's photo library / camera
         }
 
@@ -91,12 +172,12 @@
             overlay.hidden = true;
         }
 
-        // Once a photo is chosen, upload it right away
         fileInput.addEventListener("change", function () {
             if (fileInput.files.length > 0) {
                 photoForm.submit();
             }
         });
     </script>
+    {% endif %}
 </body>
 </html>

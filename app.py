@@ -1,39 +1,79 @@
 import json
 import os
+import re
+from datetime import date
 
-from flask import Flask, redirect, render_template, request, url_for
+from flask import (
+    Flask,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+# Needed to keep users logged in. For a real deployment use a random secret.
+app.secret_key = "sudana-dev-secret-key"
 
 # Where uploaded profile pictures are stored, and which file types we allow
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# Remembers which users have granted photo-access permission (so we only ask once)
-PERMISSIONS_FILE = os.path.join("data", "permissions.json")
+# Simple JSON "database" of user accounts, keyed by username
+USERS_FILE = os.path.join("data", "users.json")
+
+# Categories a user can pick for their profile
+CATEGORIES = [
+    "Student",
+    "Artist",
+    "Musician",
+    "Entrepreneur",
+    "Athlete",
+    "Writer",
+    "Content Creator",
+    "Other",
+]
+
+# Names may only contain letters and spaces (no numbers or dashes)
+NAME_PATTERN = re.compile(r"^[A-Za-z ]+$")
 
 
-def load_permissions():
+# ---------- User "database" helpers ----------
+
+def load_users():
     try:
-        with open(PERMISSIONS_FILE) as f:
+        with open(USERS_FILE) as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
 
-def grant_permission(username):
-    perms = load_permissions()
-    perms[username] = True
-    os.makedirs(os.path.dirname(PERMISSIONS_FILE), exist_ok=True)
-    with open(PERMISSIONS_FILE, "w") as f:
-        json.dump(perms, f)
+def save_users(users):
+    os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=2)
 
 
-def has_photo_permission(username):
-    return load_permissions().get(username, False)
+def find_user_by_email(email):
+    for user in load_users().values():
+        if user["email"].lower() == email.lower():
+            return user
+    return None
 
+
+def current_user():
+    """The logged-in user's record, or None."""
+    username = session.get("username")
+    if username:
+        return load_users().get(username)
+    return None
+
+
+# ---------- Profile photo helpers ----------
 
 def find_profile_photo(username):
     """Return the saved profile-photo filename for a user, or None."""
@@ -52,6 +92,8 @@ def photo_url_for(username):
     return url_for("static", filename=f"uploads/{photo}") if photo else None
 
 
+# ---------- Routes ----------
+
 @app.route("/")
 def home():
     return render_template("index.html")
@@ -61,6 +103,9 @@ def home():
 def signup():
     if request.method == "POST":
         # Grab what the user typed in the form
+        first_name = request.form.get("first_name", "").strip()
+        last_name = request.form.get("last_name", "").strip()
+        username = request.form.get("username", "").strip()
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "")
         gender = request.form.get("gender", "")
@@ -69,10 +114,31 @@ def signup():
         not_south_sudanese = request.form.get("not_south_sudanese") == "yes"
         dob = request.form.get("dob", "")
 
+        users = load_users()
+
         # Server-side checks (never trust the browser alone)
         errors = []
+        if not first_name:
+            errors.append("Please enter your first name.")
+        elif not NAME_PATTERN.match(first_name):
+            errors.append("First name can only contain letters (no numbers or dashes).")
+        if not last_name:
+            errors.append("Please enter your last name.")
+        elif not NAME_PATTERN.match(last_name):
+            errors.append("Last name can only contain letters (no numbers or dashes).")
+
+        if not username:
+            errors.append("Please choose a username.")
+        elif " " in username:
+            errors.append("Username cannot contain spaces.")
+        elif username in users:
+            errors.append("That username is already taken.")
+
         if not email:
             errors.append("Please enter your email.")
+        elif find_user_by_email(email):
+            errors.append("An account with that email already exists.")
+
         if len(password) < 8:
             errors.append("Password must be at least 8 characters.")
         if not gender:
@@ -82,14 +148,33 @@ def signup():
                 errors.append("Please enter your country.")
         elif not hometown:
             errors.append("Please tell us your hometown.")
+
+        # Date of birth must be present, valid, and at least 16 years old
         if not dob:
             errors.append("Please enter your date of birth.")
+        else:
+            try:
+                birth = date.fromisoformat(dob)
+                today = date.today()
+                age = today.year - birth.year - (
+                    (today.month, today.day) < (birth.month, birth.day)
+                )
+                if age < 16:
+                    errors.append(
+                        "Sorry, you must be at least 16 years old. "
+                        "You cannot open an account right now."
+                    )
+            except ValueError:
+                errors.append("Please enter a valid date of birth.")
 
         if errors:
             # Send them back to the form with the errors and what they typed
             return render_template(
                 "signup.html",
                 errors=errors,
+                first_name=first_name,
+                last_name=last_name,
+                username=username,
                 email=email,
                 gender=gender,
                 hometown=hometown,
@@ -98,8 +183,28 @@ def signup():
                 dob=dob,
             )
 
-        # Success! (In a real app you'd save this to a database here.)
-        return render_template("success.html", email=email)
+        # Save the new account
+        users[username] = {
+            "first_name": first_name,
+            "last_name": last_name,
+            "username": username,
+            "email": email,
+            "password_hash": generate_password_hash(password),
+            "gender": gender,
+            "dob": dob,
+            "hometown": country if not_south_sudanese else hometown,
+            "bio": "",
+            "category": "",
+            "geez": [],          # accepted MyGeez connections (usernames)
+            "pending_sent": [],  # MyGeez requests you've sent, still pending
+            "posts": [],
+            "photo_permission": False,
+        }
+        save_users(users)
+
+        # Log them in and take them to their home feed
+        session["username"] = username
+        return redirect(url_for("dashboard"))
 
     # GET request — just show the empty form
     return render_template("signup.html", errors=[])
@@ -117,46 +222,100 @@ def login():
         if not password:
             errors.append("Please enter your password.")
 
-        if errors:
-            return render_template("login.html", errors=errors, email=email)
+        if not errors:
+            user = find_user_by_email(email)
+            if user and check_password_hash(user["password_hash"], password):
+                session["username"] = user["username"]
+                return redirect(url_for("dashboard"))
+            errors.append("Incorrect email or password.")
 
-        # In a real app you'd check these credentials against a database here.
-        # Use the part of the email before "@" as a friendly display name.
-        username = email.split("@")[0]
-        return render_template(
-            "dashboard.html", username=username, photo_url=photo_url_for(username)
-        )
+        return render_template("login.html", errors=errors, email=email)
 
     return render_template("login.html", errors=[])
 
 
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home"))
+
+
+@app.route("/dashboard")
+def dashboard():
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+    return render_template(
+        "dashboard.html",
+        username=user["username"],
+        photo_url=photo_url_for(user["username"]),
+    )
+
+
 @app.route("/profile")
 def profile():
-    # Name is passed along in the link from the dashboard.
-    username = request.args.get("name", "Friend")
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+
+    # Whose profile are we looking at? Defaults to your own.
+    target_name = request.args.get("name", viewer["username"])
+    user = load_users().get(target_name)
+    if not user:
+        user = viewer  # fall back to your own profile
+
+    is_owner = user["username"] == viewer["username"]
     return render_template(
         "profile.html",
-        username=username,
-        photo_url=photo_url_for(username),
-        photo_permission=has_photo_permission(username),
+        user=user,
+        is_owner=is_owner,
+        photo_url=photo_url_for(user["username"]),
+        categories=CATEGORIES,
+        geez_count=len(user.get("geez", [])),
+        pending_count=len(user.get("pending_sent", [])),
+        photo_permission=user.get("photo_permission", False),
     )
 
 
 @app.route("/grant-photo-permission", methods=["POST"])
 def grant_photo_permission():
-    username = request.form.get("name", "")
-    if username:
-        grant_permission(username)
+    user = current_user()
+    if user:
+        users = load_users()
+        users[user["username"]]["photo_permission"] = True
+        save_users(users)
     return ("", 204)
+
+
+@app.route("/update-profile", methods=["POST"])
+def update_profile():
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    record = users[user["username"]]
+    record["bio"] = request.form.get("bio", "").strip()
+    category = request.form.get("category", "")
+    record["category"] = category if category in CATEGORIES else ""
+    save_users(users)
+
+    return redirect(url_for("profile"))
 
 
 @app.route("/upload-photo", methods=["POST"])
 def upload_photo():
-    username = request.form.get("name", "Friend")
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    username = user["username"]
     file = request.files.get("photo")
 
     # Uploading a photo means permission was granted — remember it.
-    grant_permission(username)
+    users = load_users()
+    users[username]["photo_permission"] = True
+    save_users(users)
 
     if file and file.filename and "." in file.filename:
         ext = file.filename.rsplit(".", 1)[1].lower()
@@ -171,7 +330,7 @@ def upload_photo():
 
             file.save(os.path.join(app.config["UPLOAD_FOLDER"], f"{safe}.{ext}"))
 
-    return redirect(url_for("profile", name=username))
+    return redirect(url_for("profile"))
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])

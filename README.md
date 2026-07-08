@@ -8,10 +8,15 @@ palette (black, red, green, blue, and gold).
 ## Features
 
 - **Welcome page** with a hero banner and **Get Started** / **Login** buttons
-- **Sign-up page** collecting email, password, gender, hometown, and date of birth
+- **Sign-up page** collecting first & last name, username, email, password,
+  gender, hometown, and date of birth
+  - First/last names may only contain **letters** (no numbers or dashes)
+  - **Username** must be unique and space-free
   - Password must be at least **8 characters** (checked in the browser *and* on the server)
+  - You must be at least **16 years old** to open an account
   - Hometown suggests South Sudan states and major towns
-- **Login page** with a **Forgot password?** link
+- **Real accounts** — sign-ups are saved and passwords are securely **hashed**
+- **Login** with session-based sign-in and a **Forgot password?** link
 - **Forgot-password page** to request a reset link
 - **Home dashboard** (after login) styled like a social feed:
   - `sudana` top bar with search and messages icons
@@ -21,11 +26,15 @@ palette (black, red, green, blue, and gold).
     counts, and Like / Comment / Share buttons
   - A **bottom navigation bar**: Home, 🤝 MyGeez, ❤️ Dating, 🔔 Notifications,
     and a **Profile** avatar
-- **Profile page** showing the user's name and avatar
-  - **Change your profile picture** — asks for photo-access permission the first
-    time (phone-style prompt), then opens your device's photo library/camera,
-    uploads the image, and shows it everywhere (profile + dashboard avatars)
-  - The permission choice is **remembered on the server**, so it only asks once
+- **Profile page** showing:
+  - Profile picture with a **change-photo** button (owner only). Asks for
+    photo-access permission the first time (phone-style prompt), then opens your
+    device's photo library/camera. The choice is remembered on the server.
+  - Full name and **@username**
+  - **Category** badge (Student, Artist, Musician, …) and **bio** — both editable
+  - **Gender**
+  - **MyGeez count** (public) and **pending MyGeez sent** (visible to you only)
+  - **My Posts**
 
 ## Requirements
 
@@ -70,25 +79,28 @@ Sudana/
 │   ├── signup.html             # sign-up form
 │   ├── login.html              # login form
 │   ├── forgot_password.html    # password reset request
-│   ├── dashboard.html          # home page after login
-│   ├── profile.html            # user profile page
-│   └── success.html            # sign-up confirmation page
+│   ├── dashboard.html          # home page (feed) after login
+│   └── profile.html            # user profile page
 ├── static/
 │   ├── style.css               # styling (South Sudan flag colors)
 │   └── uploads/                # uploaded profile pictures (created on first upload)
 ├── data/
-│   └── permissions.json        # remembers photo-access permission (auto-created)
+│   └── users.json              # saved user accounts (auto-created)
 └── README.md
 ```
 
+> Accounts are stored in `data/users.json` (a simple file-based store).
+> `werkzeug`, which handles the password hashing, is installed automatically
+> with Flask.
+
 ## Notes / next steps
 
-This is an early version. User information **is not saved** yet — the forms
-validate input and show confirmation pages, but there is no database and no real
-authentication. The **MyGeez**, **Dating**, and **News & Entertainment** icons on
-the dashboard are placeholders and don't open anything yet. Planned next steps:
+Accounts are now saved to a JSON file and passwords are hashed, but this is still
+an early version. The **MyGeez**, **Dating**, and **Notifications** sections are
+placeholders, and the dashboard feed shows sample posts (the composer doesn't
+create real posts yet). Planned next steps:
 
-- Build out the MyGeez, Dating, and News & Entertainment sections
-- Store accounts in a database
-- Securely hash passwords (never store them as plain text)
+- Let the "What is in your mind?" composer create real posts
+- Build out the MyGeez (connections), Dating, and Notifications sections
+- Move from the JSON file to a real database
 - Send real password-reset emails
