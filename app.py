@@ -258,6 +258,39 @@ def dashboard():
     )
 
 
+@app.route("/search")
+def search():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+
+    query = request.args.get("q", "").strip()
+    results = []
+    if query:
+        needle = query.lower()
+        for user in load_users().values():
+            if user["username"] == viewer["username"]:
+                continue  # don't show yourself in results
+            full_name = f"{user['first_name']} {user['last_name']}".lower()
+            if (
+                needle in user["username"].lower()
+                or needle in user["first_name"].lower()
+                or needle in user["last_name"].lower()
+                or needle in full_name
+            ):
+                results.append(
+                    {
+                        "username": user["username"],
+                        "name": f"{user['first_name']} {user['last_name']}",
+                        "category": user.get("category", ""),
+                        "initial": user["first_name"][0].upper(),
+                        "photo_url": photo_url_for(user["username"]),
+                    }
+                )
+
+    return render_template("search.html", q=query, results=results)
+
+
 @app.route("/profile")
 def profile():
     viewer = current_user()
