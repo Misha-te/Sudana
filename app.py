@@ -30,7 +30,7 @@ USERS_FILE = os.path.join("data", "users.json")
 BIO_WORD_LIMIT = 105
 
 # Gender options a user can pick
-GENDERS = ["Male", "Female", "Other"]
+GENDERS = ["Male", "Female", "Other","Prefer not to say"]
 
 # Categories a user can pick for their profile
 CATEGORIES = [
