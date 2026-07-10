@@ -25,7 +25,10 @@ file for storage instead of a full database.
 - Working account-menu logout for the signed-in username
 - Forgot-password page that shows a reset-link confirmation message
 - Home dashboard styled like a social feed
-- Working post composer that saves new posts to the local user data file
+- Post composer with public, private, or selected-MyGeez visibility
+- Optional photo and video attachments for posts
+- Clickable links in post text
+- Owners can delete only their own posts
 - Search page for finding people by name or username
 - Profile pages for the logged-in user and other users
 - Editable profile fields:
@@ -124,6 +127,10 @@ the user has granted photo-upload permission.
 Uploaded profile photos are saved in `static/uploads/`. Each user can have one
 current profile photo; uploading a new one replaces the old file for that user.
 
+Post photos and videos are saved in `static/uploads/posts/`. Posts can be set to
+**Public**, **Private** (author only), or **Certain MyGeez**. The last option
+shares a post only with the accepted MyGeez selected while creating it.
+
 ## Current Limitations
 
 - The dashboard feed shows sample posts only when no real posts have been made.
@@ -136,7 +143,7 @@ current profile photo; uploading a new one replaces the old file for that user.
 
 ## Possible Next Steps
 
-- Let users edit and delete posts
+- Let users edit posts
 - Build the MyGeez connection request flow
 - Add real notifications and messaging
 - Send password-reset emails
