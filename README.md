@@ -22,6 +22,7 @@ for storage instead of a full database.
 - Login, logout, and session-based access to private pages
 - Forgot-password page that shows a reset-link confirmation message
 - Home dashboard styled like a social feed
+- Working post composer that saves new posts to the local user data file
 - Search page for finding people by name or username
 - Profile pages for the logged-in user and other users
 - Editable profile fields:
@@ -93,16 +94,15 @@ Sudana/
 ## Data Storage
 
 User accounts are saved in `data/users.json`. Each user record stores profile
-details, hashed password data, connection placeholders, post placeholders, and
-whether the user has granted photo-upload permission.
+details, hashed password data, connection placeholders, saved posts, and whether
+the user has granted photo-upload permission.
 
 Uploaded profile photos are saved in `static/uploads/`. Each user can have one
 current profile photo; uploading a new one replaces the old file for that user.
 
 ## Current Limitations
 
-- The dashboard feed uses sample posts.
-- The post composer does not create real posts yet.
+- The dashboard feed shows sample posts only when no real posts have been made.
 - MyGeez connections, Dating, Notifications, and Messages are placeholders.
 - The forgot-password page does not send real email.
 - The JSON file works for development, but a real deployment should use a
@@ -110,7 +110,7 @@ current profile photo; uploading a new one replaces the old file for that user.
 
 ## Possible Next Steps
 
-- Let users create, edit, and delete posts
+- Let users edit and delete posts
 - Build the MyGeez connection request flow
 - Add real notifications and messaging
 - Send password-reset emails
