@@ -183,6 +183,7 @@ def build_feed_posts(users, viewer_username):
                         "visibility": post.get("visibility", "public"),
                         "media_url": url_for("static", filename=f"uploads/posts/{media_filename}") if media_filename else None,
                         "media_type": post.get("media_type"),
+                        "shared_with": post.get("shared_with", []),
                         "is_owner": user["username"] == viewer_username,
                     }
                 )
@@ -199,6 +200,7 @@ def build_feed_posts(users, viewer_username):
                         "visibility": "public",
                         "media_url": None,
                         "media_type": None,
+                        "shared_with": [],
                         "is_owner": user["username"] == viewer_username,
                     }
                 )
@@ -444,6 +446,40 @@ def delete_post(post_id):
                     os.remove(media_path)
             save_users(users)
             break
+
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/update-post/<post_id>", methods=["POST"])
+def update_post(post_id):
+    """Update text and privacy only for a post owned by the current user."""
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    record = users.get(user["username"])
+    if not record:
+        return redirect(url_for("dashboard"))
+
+    for post in record.get("posts", []):
+        if not isinstance(post, dict) or post.get("id") != post_id:
+            continue
+        text = request.form.get("post_text", "").strip()
+        # Do not turn a text-only post into an empty post.
+        if text or post.get("media_filename"):
+            post["text"] = text
+        visibility = request.form.get("visibility", "public")
+        post["visibility"] = visibility if visibility in {"public", "private", "geez"} else "public"
+        if post["visibility"] == "geez":
+            allowed_geez = set(record.get("geez", []))
+            post["shared_with"] = [
+                name for name in request.form.getlist("shared_with") if name in allowed_geez
+            ]
+        else:
+            post["shared_with"] = []
+        save_users(users)
+        break
 
     return redirect(url_for("dashboard"))
 

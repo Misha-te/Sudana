@@ -99,9 +99,25 @@
                     <span>@{{ post.author_username }} · {{ post.created_label }}</span>
                 </div>
                 {% if post.is_owner %}
-                <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}" onsubmit="return confirm('Delete this post?');">
-                    <button class="delete-post" type="submit" title="Delete your post" aria-label="Delete your post">&#128465;</button>
-                </form>
+                <details class="post-options">
+                    <summary class="post-menu" title="Post options" aria-label="Post options">&#8942;</summary>
+                    <div class="post-options-menu">
+                        <button type="button" class="post-menu-action open-post-editor"
+                                data-post-id="{{ post.id }}"
+                                data-post-text="{{ post.text }}"
+                                data-visibility="{{ post.visibility }}"
+                                data-shared-with="{{ post.shared_with|join(',') }}">Edit post</button>
+                        <button type="button" class="post-menu-action open-post-editor"
+                                data-post-id="{{ post.id }}"
+                                data-post-text="{{ post.text }}"
+                                data-visibility="{{ post.visibility }}"
+                                data-shared-with="{{ post.shared_with|join(',') }}"
+                                data-focus-privacy="true">Privacy settings</button>
+                        <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}" onsubmit="return confirm('Delete this post?');">
+                            <button class="post-menu-action delete-menu-action" type="submit">Delete post</button>
+                        </form>
+                    </div>
+                </details>
                 {% endif %}
             </header>
             {% if post.text %}<p class="post-text">{{ post.text|linkify }}</p>{% endif %}
@@ -114,7 +130,7 @@
             {% endif %}
             <div class="post-stats">
                 <span class="reactions">&#128077; 0</span>
-                <span class="post-visibility">{{ {'public': 'Public', 'private': 'Only you', 'geez': 'Selected MyGeez'}[post.visibility] }}</span>
+                <span class="comments">0 Comments</span>
             </div>
             <div class="post-actions">
                 <button>&#128077; Like</button>
@@ -176,6 +192,32 @@
         </article>
         {% endif %}
     </main>
+
+    <dialog class="post-editor-dialog" id="post-editor-dialog" aria-labelledby="post-editor-title">
+        <form method="POST" id="post-editor-form">
+            <div class="post-editor-heading">
+                <h2 id="post-editor-title">Edit post</h2>
+                <button type="button" class="close-post-editor" aria-label="Close">&times;</button>
+            </div>
+            <label for="edit-post-text">Post</label>
+            <textarea id="edit-post-text" name="post_text" maxlength="500"></textarea>
+            <label for="edit-post-visibility">Privacy</label>
+            <select id="edit-post-visibility" name="visibility">
+                <option value="public">Public</option>
+                <option value="private">Private — only you</option>
+                <option value="geez">Certain MyGeez</option>
+            </select>
+            {% if geez_contacts %}
+            <fieldset class="edit-geez-picker" hidden>
+                <legend>Share with selected MyGeez</legend>
+                {% for geez in geez_contacts %}
+                <label><input type="checkbox" name="shared_with" value="{{ geez.username }}"> {{ geez.name }} (@{{ geez.username }})</label>
+                {% endfor %}
+            </fieldset>
+            {% endif %}
+            <button type="submit" class="save-post-changes">Save changes</button>
+        </form>
+    </dialog>
 
     <!-- Account menu opened from the three-line button beside the Sudana logo. -->
     <div class="account-menu-overlay" id="account-menu" hidden>
@@ -253,6 +295,37 @@
                 geezPicker.hidden = visibilitySelect.value !== 'geez';
             });
         }
+
+        const postEditor = document.querySelector('#post-editor-dialog');
+        const postEditorForm = document.querySelector('#post-editor-form');
+        const editorText = document.querySelector('#edit-post-text');
+        const editorVisibility = document.querySelector('#edit-post-visibility');
+        const editGeezPicker = document.querySelector('.edit-geez-picker');
+        const closePostEditor = document.querySelector('.close-post-editor');
+
+        function showEditGeezPicker() {
+            if (editGeezPicker) editGeezPicker.hidden = editorVisibility.value !== 'geez';
+        }
+
+        document.querySelectorAll('.open-post-editor').forEach((button) => {
+            button.addEventListener('click', () => {
+                postEditorForm.action = `/update-post/${button.dataset.postId}`;
+                editorText.value = button.dataset.postText;
+                editorVisibility.value = button.dataset.visibility;
+                const sharedWith = button.dataset.sharedWith.split(',').filter(Boolean);
+                document.querySelectorAll('.edit-geez-picker input').forEach((checkbox) => {
+                    checkbox.checked = sharedWith.includes(checkbox.value);
+                });
+                showEditGeezPicker();
+                postEditor.showModal();
+                (button.dataset.focusPrivacy === 'true' ? editorVisibility : editorText).focus();
+            });
+        });
+        if (editorVisibility) editorVisibility.addEventListener('change', showEditGeezPicker);
+        closePostEditor.addEventListener('click', () => postEditor.close());
+        postEditor.addEventListener('click', (event) => {
+            if (event.target === postEditor) postEditor.close();
+        });
     </script>
 </body>
 </html>

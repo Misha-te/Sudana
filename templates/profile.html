@@ -77,7 +77,14 @@
                 {% for post in visible_posts|reverse %}
                 <div class="mini-post">
                     {% if post is mapping %}
-                    <p>{{ post.text }}</p>
+                    {% if post.text %}<p>{{ post.text|linkify }}</p>{% endif %}
+                    {% if post.media_filename %}
+                        {% if post.media_type == 'video' %}
+                        <video class="profile-post-media" controls preload="metadata"><source src="{{ url_for('static', filename='uploads/posts/' + post.media_filename) }}">Your browser does not support this video.</video>
+                        {% else %}
+                        <img class="profile-post-media" src="{{ url_for('static', filename='uploads/posts/' + post.media_filename) }}" alt="Photo attached to this post">
+                        {% endif %}
+                    {% endif %}
                     <span>{{ post.created_label }}</span>
                     {% else %}
                     <p>{{ post }}</p>
