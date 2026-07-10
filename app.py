@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from datetime import date
+from datetime import date, datetime
 
 from flask import (
     Flask,
@@ -96,6 +96,38 @@ def photo_url_for(username):
     """Build the URL for a user's profile photo, or None if they have none."""
     photo = find_profile_photo(username)
     return url_for("static", filename=f"uploads/{photo}") if photo else None
+
+
+def build_feed_posts(users):
+    """Return saved posts newest-first with author details for the dashboard."""
+    posts = []
+    for user in users.values():
+        for post in user.get("posts", []):
+            if isinstance(post, dict):
+                posts.append(
+                    {
+                        "text": post.get("text", ""),
+                        "created_at": post.get("created_at", ""),
+                        "created_label": post.get("created_label", "Just now"),
+                        "author_name": f"{user['first_name']} {user['last_name']}",
+                        "author_username": user["username"],
+                        "author_initial": user["first_name"][0].upper(),
+                        "author_photo_url": photo_url_for(user["username"]),
+                    }
+                )
+            else:
+                posts.append(
+                    {
+                        "text": str(post),
+                        "created_at": "",
+                        "created_label": "Earlier",
+                        "author_name": f"{user['first_name']} {user['last_name']}",
+                        "author_username": user["username"],
+                        "author_initial": user["first_name"][0].upper(),
+                        "author_photo_url": photo_url_for(user["username"]),
+                    }
+                )
+    return sorted(posts, key=lambda post: post["created_at"], reverse=True)
 
 
 # ---------- Routes ----------
@@ -251,11 +283,37 @@ def dashboard():
     user = current_user()
     if not user:
         return redirect(url_for("login"))
+    users = load_users()
     return render_template(
         "dashboard.html",
         username=user["username"],
         photo_url=photo_url_for(user["username"]),
+        posts=build_feed_posts(users),
     )
+
+
+@app.route("/create-post", methods=["POST"])
+def create_post():
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    text = request.form.get("post_text", "").strip()
+    if text:
+        users = load_users()
+        record = users[user["username"]]
+        record.setdefault("posts", [])
+        now = datetime.now()
+        record["posts"].append(
+            {
+                "text": text,
+                "created_at": now.isoformat(timespec="seconds"),
+                "created_label": now.strftime("%b %d, %Y at %-I:%M %p"),
+            }
+        )
+        save_users(users)
+
+    return redirect(url_for("dashboard"))
 
 
 @app.route("/search")
