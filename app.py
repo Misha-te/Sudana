@@ -529,11 +529,26 @@ def profile():
     if not user:
         user = viewer  # fall back to your own profile
 
+    # Make sure older posts have IDs and visibility set
+    users = load_users()
+    ensure_post_ids(users)
+
     is_owner = user["username"] == viewer["username"]
     visible_posts = [
         post for post in user.get("posts", [])
         if not isinstance(post, dict) or post_is_visible(post, viewer["username"], user["username"])
     ]
+
+    # If you're viewing your own profile, expose your MyGeez contacts so
+    # the post editor can offer the same privacy/sharing UI as on the feed.
+    geez_contacts = []
+    if is_owner:
+        geez_contacts = [
+            {"username": name, "name": f"{users[name]['first_name']} {users[name]['last_name']}"}
+            for name in viewer.get("geez", [])
+            if name in users
+        ]
+
     return render_template(
         "profile.html",
         user=user,
@@ -544,6 +559,7 @@ def profile():
         pending_count=len(user.get("pending_sent", [])),
         photo_permission=user.get("photo_permission", False),
         visible_posts=visible_posts,
+        geez_contacts=geez_contacts,
     )
 
 

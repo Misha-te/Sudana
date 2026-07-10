@@ -75,21 +75,48 @@
             </h2>
             {% if visible_posts %}
                 {% for post in visible_posts|reverse %}
-                <div class="mini-post">
-                    {% if post is mapping %}
-                    {% if post.text %}<p>{{ post.text|linkify }}</p>{% endif %}
-                    {% if post.media_filename %}
-                        {% if post.media_type == 'video' %}
-                        <video class="profile-post-media" controls preload="metadata"><source src="{{ url_for('static', filename='uploads/posts/' + post.media_filename) }}">Your browser does not support this video.</video>
-                        {% else %}
-                        <img class="profile-post-media" src="{{ url_for('static', filename='uploads/posts/' + post.media_filename) }}" alt="Photo attached to this post">
+                <article class="post mini-post">
+                    <header class="post-head">
+                        <div class="avatar-sm grad-user">{{ user.first_name[0]|upper }}</div>
+                        <div class="post-meta">
+                            <strong>{{ user.first_name }} {{ user.last_name }}</strong>
+                            <span>@{{ user.username }}{% if post.created_label %} · {{ post.created_label }}{% endif %}</span>
+                        </div>
+                        {% if is_owner and post is mapping and post.id %}
+                        <details class="post-options">
+                            <summary class="post-menu" title="Post options" aria-label="Post options">&#8942;</summary>
+                            <div class="post-options-menu">
+                                <button type="button" class="post-menu-action open-post-editor"
+                                        data-post-id="{{ post.id }}"
+                                        data-post-text="{{ post.text }}"
+                                        data-visibility="{{ post.visibility }}"
+                                        data-shared-with="{{ post.shared_with|join(',') }}">Edit post</button>
+                                <button type="button" class="post-menu-action open-post-editor"
+                                        data-post-id="{{ post.id }}"
+                                        data-post-text="{{ post.text }}"
+                                        data-visibility="{{ post.visibility }}"
+                                        data-shared-with="{{ post.shared_with|join(',') }}"
+                                        data-focus-privacy="true">Privacy settings</button>
+                                <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}" onsubmit="return confirm('Delete this post?');">
+                                    <button class="post-menu-action delete-menu-action" type="submit">Delete post</button>
+                                </form>
+                            </div>
+                        </details>
                         {% endif %}
-                    {% endif %}
-                    <span>{{ post.created_label }}</span>
+                    </header>
+                    {% if post is mapping %}
+                        {% if post.text %}<p class="post-text">{{ post.text|linkify }}</p>{% endif %}
+                        {% if post.media_filename %}
+                            {% if post.media_type == 'video' %}
+                            <video class="post-media profile-post-media" controls preload="metadata"><source src="{{ url_for('static', filename='uploads/posts/' + post.media_filename) }}">Your browser does not support this video.</video>
+                            {% else %}
+                            <img class="post-media profile-post-media" src="{{ url_for('static', filename='uploads/posts/' + post.media_filename) }}" alt="Photo attached to this post">
+                            {% endif %}
+                        {% endif %}
                     {% else %}
-                    <p>{{ post }}</p>
+                        <p>{{ post }}</p>
                     {% endif %}
-                </div>
+                </article>
                 {% endfor %}
             {% else %}
             <p class="muted">No posts yet.</p>
@@ -116,6 +143,67 @@
             </div>
         </div>
     </div>
+    {% endif %}
+
+    {% if is_owner %}
+    <dialog class="post-editor-dialog" id="post-editor-dialog" aria-labelledby="post-editor-title">
+        <form method="POST" id="post-editor-form">
+            <div class="post-editor-heading">
+                <h2 id="post-editor-title">Edit post</h2>
+                <button type="button" class="close-post-editor" aria-label="Close">&times;</button>
+            </div>
+            <label for="edit-post-text">Post</label>
+            <textarea id="edit-post-text" name="post_text" maxlength="500"></textarea>
+            <label for="edit-post-visibility">Privacy</label>
+            <select id="edit-post-visibility" name="visibility">
+                <option value="public">Public</option>
+                <option value="private">Private — only you</option>
+                <option value="geez">Certain MyGeez</option>
+            </select>
+            {% if geez_contacts %}
+            <fieldset class="edit-geez-picker" hidden>
+                <legend>Share with selected MyGeez</legend>
+                {% for geez in geez_contacts %}
+                <label><input type="checkbox" name="shared_with" value="{{ geez.username }}"> {{ geez.name }} (@{{ geez.username }})</label>
+                {% endfor %}
+            </fieldset>
+            {% endif %}
+            <button type="submit" class="save-post-changes">Save changes</button>
+        </form>
+    </dialog>
+
+    <script>
+        const postEditor = document.querySelector('#post-editor-dialog');
+        const postEditorForm = document.querySelector('#post-editor-form');
+        const editorText = document.querySelector('#edit-post-text');
+        const editorVisibility = document.querySelector('#edit-post-visibility');
+        const editGeezPicker = document.querySelector('.edit-geez-picker');
+        const closePostEditor = document.querySelector('.close-post-editor');
+
+        function showEditGeezPicker() {
+            if (editGeezPicker) editGeezPicker.hidden = editorVisibility.value !== 'geez';
+        }
+
+        document.querySelectorAll('.open-post-editor').forEach((button) => {
+            button.addEventListener('click', () => {
+                postEditorForm.action = `/update-post/${button.dataset.postId}`;
+                editorText.value = button.dataset.postText;
+                editorVisibility.value = button.dataset.visibility;
+                const sharedWith = button.dataset.sharedWith.split(',').filter(Boolean);
+                document.querySelectorAll('.edit-geez-picker input').forEach((checkbox) => {
+                    checkbox.checked = sharedWith.includes(checkbox.value);
+                });
+                showEditGeezPicker();
+                postEditor.showModal();
+                (button.dataset.focusPrivacy === 'true' ? editorVisibility : editorText).focus();
+            });
+        });
+        if (editorVisibility) editorVisibility.addEventListener('change', showEditGeezPicker);
+        closePostEditor.addEventListener('click', () => postEditor.close());
+        postEditor.addEventListener('click', (event) => {
+            if (event.target === postEditor) postEditor.close();
+        });
+    </script>
     {% endif %}
 
     <!-- Bottom navigation -->
