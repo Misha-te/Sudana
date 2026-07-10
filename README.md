@@ -53,27 +53,7 @@ file for storage instead of a full database.
  - `GET /` — Welcome page (`templates/index.html`)
  - `GET|POST /signup` — Create account
  - `GET|POST /login` — Sign in
-# Sudana
-
-Sudana is a small Flask web app for a South Sudanese social community. It
-supports account creation, login, profile editing, profile photo uploads, a
-home feed with posts (text + optional photo/video), and simple privacy
-controls (Public / Private / Certain MyGeez).
-
-This project uses a JSON file for storage (`data/users.json`) and is intended
-for learning and prototyping — not production.
-
-## Quick Start
-
-macOS (recommended):
-
-```bash
-cd "/Users/misha/Documents/Spring 2026/Comp-127/Sudana"
-python3 -m venv .venv
-source .venv/bin/activate
-pip install flask
-python app.py
-```
+#
 
 Then open http://127.0.0.1:5001 in your browser.
 
