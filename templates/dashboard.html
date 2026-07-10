@@ -9,7 +9,7 @@
 <body class="app-body">
     <!-- Top bar -->
     <header class="topbar">
-        <button class="hamburger" title="Menu">&#9776;</button>
+        <button class="hamburger" type="button" title="Menu" aria-label="Open account menu" aria-expanded="false" aria-controls="account-menu">&#9776;</button>
         <div class="brand">sudana</div>
         <div class="topbar-actions">
             <a href="{{ url_for('search') }}" class="round-icon" title="Search">&#128269;</a>
@@ -146,6 +146,26 @@
         {% endif %}
     </main>
 
+    <!-- Account menu opened from the three-line button beside the Sudana logo. -->
+    <div class="account-menu-overlay" id="account-menu" hidden>
+        <section class="account-menu" role="dialog" aria-modal="true" aria-labelledby="account-menu-title">
+            <div class="account-menu-heading">
+                <div>
+                    <p class="account-menu-kicker">Signed in as</p>
+                    <h2 id="account-menu-title">@{{ username }}</h2>
+                </div>
+                <button class="menu-close" type="button" aria-label="Close account menu">&times;</button>
+            </div>
+            <div class="account-menu-items">
+                <button type="button" class="account-menu-item placeholder-item">&#9881;&#65039; <span>Settings &amp; Privacy</span><small>Coming soon</small></button>
+                <button type="button" class="account-menu-item placeholder-item">&#128172; <span>Support from our team</span><small>Coming soon</small></button>
+                <button type="button" class="account-menu-item placeholder-item">&#9790; <span>Dark mode</span><small>Coming soon</small></button>
+                <button type="button" class="account-menu-item placeholder-item">&#10024; <span>Premium modes</span><small>Coming soon</small></button>
+                <a class="account-menu-item logout-menu-item" href="{{ url_for('logout') }}">&#10162; <span>Log out @{{ username }}</span></a>
+            </div>
+        </section>
+    </div>
+
     <!-- Bottom navigation -->
     <nav class="bottom-nav">
         <a href="{{ url_for('dashboard') }}" class="active">
@@ -170,5 +190,30 @@
             <span>Profile</span>
         </a>
     </nav>
+    <script>
+        const menuButton = document.querySelector('.hamburger');
+        const menuOverlay = document.querySelector('.account-menu-overlay');
+        const closeMenuButton = document.querySelector('.menu-close');
+
+        function closeAccountMenu() {
+            menuOverlay.hidden = true;
+            menuButton.setAttribute('aria-expanded', 'false');
+            menuButton.focus();
+        }
+
+        menuButton.addEventListener('click', () => {
+            menuOverlay.hidden = false;
+            menuButton.setAttribute('aria-expanded', 'true');
+            closeMenuButton.focus();
+        });
+
+        closeMenuButton.addEventListener('click', closeAccountMenu);
+        menuOverlay.addEventListener('click', (event) => {
+            if (event.target === menuOverlay) closeAccountMenu();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !menuOverlay.hidden) closeAccountMenu();
+        });
+    </script>
 </body>
 </html>
