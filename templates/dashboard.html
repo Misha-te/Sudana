@@ -55,10 +55,30 @@
         </section>
 
         <!-- Post composer -->
-        <form class="composer" method="POST" action="{{ url_for('create_post') }}">
+        <form class="composer" method="POST" action="{{ url_for('create_post') }}" enctype="multipart/form-data">
             <div class="avatar-sm grad-user"
                  {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ username[0]|upper }}</div>
-            <input type="text" name="post_text" placeholder="What is in your mind?" maxlength="500" required>
+            <div class="composer-fields">
+                <textarea name="post_text" placeholder="What is in your mind?" maxlength="500" aria-label="Write a post"></textarea>
+                <div class="composer-options">
+                    <label>Visibility
+                        <select name="visibility" class="visibility-select">
+                            <option value="public">Public</option>
+                            <option value="private">Private</option>
+                            <option value="geez">Certain MyGeez</option>
+                        </select>
+                    </label>
+                    <label class="media-picker">&#128247; Photo or video<input type="file" name="media" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,video/quicktime"></label>
+                </div>
+                {% if geez_contacts %}
+                <fieldset class="geez-picker" hidden>
+                    <legend>Share with selected MyGeez</legend>
+                    {% for geez in geez_contacts %}
+                    <label><input type="checkbox" name="shared_with" value="{{ geez.username }}"> {{ geez.name }} (@{{ geez.username }})</label>
+                    {% endfor %}
+                </fieldset>
+                {% endif %}
+            </div>
             <button type="submit" class="post-submit">Post</button>
         </form>
 
@@ -78,12 +98,23 @@
                     <strong>{{ post.author_name }}</strong>
                     <span>@{{ post.author_username }} · {{ post.created_label }}</span>
                 </div>
-                <button class="post-menu" title="More">&#8942;</button>
+                {% if post.is_owner %}
+                <form method="POST" action="{{ url_for('delete_post', post_id=post.id) }}" onsubmit="return confirm('Delete this post?');">
+                    <button class="delete-post" type="submit" title="Delete your post" aria-label="Delete your post">&#128465;</button>
+                </form>
+                {% endif %}
             </header>
-            <p class="post-text">{{ post.text }}</p>
+            {% if post.text %}<p class="post-text">{{ post.text|linkify }}</p>{% endif %}
+            {% if post.media_url %}
+                {% if post.media_type == 'video' %}
+                <video class="post-media" controls preload="metadata"><source src="{{ post.media_url }}">Your browser does not support this video.</video>
+                {% else %}
+                <img class="post-media" src="{{ post.media_url }}" alt="Photo attached to @{{ post.author_username }}'s post">
+                {% endif %}
+            {% endif %}
             <div class="post-stats">
                 <span class="reactions">&#128077; 0</span>
-                <span class="comments">0 Comments</span>
+                <span class="post-visibility">{{ {'public': 'Public', 'private': 'Only you', 'geez': 'Selected MyGeez'}[post.visibility] }}</span>
             </div>
             <div class="post-actions">
                 <button>&#128077; Like</button>
@@ -214,6 +245,14 @@
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && !menuOverlay.hidden) closeAccountMenu();
         });
+
+        const visibilitySelect = document.querySelector('.visibility-select');
+        const geezPicker = document.querySelector('.geez-picker');
+        if (visibilitySelect && geezPicker) {
+            visibilitySelect.addEventListener('change', () => {
+                geezPicker.hidden = visibilitySelect.value !== 'geez';
+            });
+        }
     </script>
 </body>
 </html>
