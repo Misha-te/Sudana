@@ -7,7 +7,7 @@
     "password_hash": "scrypt:32768:8:1$japp3Jeq9MiDfxHn$9a4ebe7eeb55eb38cdb1281d843c3443391962a5d327820549ae46707ce26ac8ed271d0b7f094fb94ab552681490d8ecc7e1bc13962f077969544064ca106234",
     "gender": "Male",
     "dob": "2000-02-02",
-    "hometown": "United States",
+    "hometown": "Upper Nile State",
     "bio": "wow i am killing it",
     "category": "Athlete",
     "geez": [],
@@ -22,6 +22,16 @@
         "text": "I am killing it here",
         "created_at": "2026-07-09T23:54:17",
         "created_label": "Jul 09, 2026 at 11:54 PM"
+      },
+      {
+        "text": "Yoo bro..sap biog",
+        "created_at": "2026-07-10T01:23:09",
+        "created_label": "Jul 10, 2026 at 1:23 AM"
+      },
+      {
+        "text": "Yoo bro...  I am killing it",
+        "created_at": "2026-07-10T01:32:11",
+        "created_label": "Jul 10, 2026 at 1:32 AM"
       }
     ],
     "photo_permission": true
