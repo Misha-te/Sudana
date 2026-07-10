@@ -55,11 +55,12 @@
         </section>
 
         <!-- Post composer -->
-        <div class="composer">
+        <form class="composer" method="POST" action="{{ url_for('create_post') }}">
             <div class="avatar-sm grad-user"
                  {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ username[0]|upper }}</div>
-            <input type="text" placeholder="What is in your mind?">
-        </div>
+            <input type="text" name="post_text" placeholder="What is in your mind?" maxlength="500" required>
+            <button type="submit" class="post-submit">Post</button>
+        </form>
 
         <!-- Feed -->
         <div class="posts-head">
@@ -67,7 +68,32 @@
             <span class="sort">Most Recent &#9662;</span>
         </div>
 
-        <!-- Post 1 -->
+        {% if posts %}
+            {% for post in posts %}
+        <article class="post">
+            <header class="post-head">
+                <div class="avatar-sm grad-user"
+                     {% if post.author_photo_url %}style="background-image: url('{{ post.author_photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ post.author_initial }}</div>
+                <div class="post-meta">
+                    <strong>{{ post.author_name }}</strong>
+                    <span>@{{ post.author_username }} · {{ post.created_label }}</span>
+                </div>
+                <button class="post-menu" title="More">&#8942;</button>
+            </header>
+            <p class="post-text">{{ post.text }}</p>
+            <div class="post-stats">
+                <span class="reactions">&#128077; 0</span>
+                <span class="comments">0 Comments</span>
+            </div>
+            <div class="post-actions">
+                <button>&#128077; Like</button>
+                <button>&#128172; Comment</button>
+                <button>&#10150; Share</button>
+            </div>
+        </article>
+            {% endfor %}
+        {% else %}
+        <!-- Sample posts shown before anyone creates a real post -->
         <article class="post">
             <header class="post-head">
                 <div class="avatar-sm grad-sunset">A</div>
@@ -117,6 +143,7 @@
                 <button>&#10150; Share</button>
             </div>
         </article>
+        {% endif %}
     </main>
 
     <!-- Bottom navigation -->
