@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import uuid
 from datetime import date, datetime
 
 from flask import (
@@ -13,6 +14,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from markupsafe import Markup, escape
 
 app = Flask(__name__)
 # Needed to keep users logged in. For a real deployment use a random secret.
@@ -22,6 +24,12 @@ app.secret_key = "sudana-dev-secret-key"
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+# Post attachments are kept separate from profile photos.
+POST_UPLOAD_FOLDER = os.path.join("static", "uploads", "posts")
+POST_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+POST_VIDEO_EXTENSIONS = {"mp4", "webm", "mov"}
+app.config["POST_UPLOAD_FOLDER"] = POST_UPLOAD_FOLDER
 
 # Simple JSON "database" of user accounts, keyed by username
 USERS_FILE = os.path.join("data", "users.json")
@@ -98,14 +106,73 @@ def photo_url_for(username):
     return url_for("static", filename=f"uploads/{photo}") if photo else None
 
 
-def build_feed_posts(users):
+def post_is_visible(post, viewer_username, author_username):
+    """Return whether a post can be shown to the current viewer."""
+    if author_username == viewer_username:
+        return True
+    visibility = post.get("visibility", "public")
+    if visibility == "public":
+        return True
+    if visibility == "geez":
+        return viewer_username in post.get("shared_with", [])
+    return False  # private posts are visible only to their author
+
+
+def ensure_post_ids(users):
+    """Give older saved posts IDs and public visibility so they remain usable."""
+    changed = False
+    for user in users.values():
+        for post in user.get("posts", []):
+            if not isinstance(post, dict):
+                continue
+            if not post.get("id"):
+                post["id"] = uuid.uuid4().hex
+                changed = True
+            if not post.get("visibility"):
+                post["visibility"] = "public"
+                changed = True
+            post.setdefault("shared_with", [])
+    if changed:
+        save_users(users)
+
+
+def linkify(text):
+    """Escape post text and turn http(s)/www links into safe clickable links."""
+    url_pattern = re.compile(r"(?<![\w@])(https?://[^\s<]+|www\.[^\s<]+)")
+    parts = []
+    last = 0
+    for match in url_pattern.finditer(text):
+        parts.append(escape(text[last:match.start()]))
+        displayed_url = match.group(0)
+        href = displayed_url if displayed_url.startswith(("http://", "https://")) else f"https://{displayed_url}"
+        # Keep trailing sentence punctuation outside the link.
+        trailing = ""
+        while displayed_url and displayed_url[-1] in ".,!?;:":
+            trailing = displayed_url[-1] + trailing
+            displayed_url = displayed_url[:-1]
+            href = href[:-1]
+        parts.append(Markup(f'<a href="{escape(href)}" target="_blank" rel="noopener noreferrer">{escape(displayed_url)}</a>'))
+        parts.append(escape(trailing))
+        last = match.end()
+    parts.append(escape(text[last:]))
+    return Markup("".join(str(part) for part in parts))
+
+
+app.jinja_env.filters["linkify"] = linkify
+
+
+def build_feed_posts(users, viewer_username):
     """Return saved posts newest-first with author details for the dashboard."""
     posts = []
     for user in users.values():
         for post in user.get("posts", []):
             if isinstance(post, dict):
+                if not post_is_visible(post, viewer_username, user["username"]):
+                    continue
+                media_filename = post.get("media_filename")
                 posts.append(
                     {
+                        "id": post.get("id"),
                         "text": post.get("text", ""),
                         "created_at": post.get("created_at", ""),
                         "created_label": post.get("created_label", "Just now"),
@@ -113,6 +180,10 @@ def build_feed_posts(users):
                         "author_username": user["username"],
                         "author_initial": user["first_name"][0].upper(),
                         "author_photo_url": photo_url_for(user["username"]),
+                        "visibility": post.get("visibility", "public"),
+                        "media_url": url_for("static", filename=f"uploads/posts/{media_filename}") if media_filename else None,
+                        "media_type": post.get("media_type"),
+                        "is_owner": user["username"] == viewer_username,
                     }
                 )
             else:
@@ -125,6 +196,10 @@ def build_feed_posts(users):
                         "author_username": user["username"],
                         "author_initial": user["first_name"][0].upper(),
                         "author_photo_url": photo_url_for(user["username"]),
+                        "visibility": "public",
+                        "media_url": None,
+                        "media_type": None,
+                        "is_owner": user["username"] == viewer_username,
                     }
                 )
     return sorted(posts, key=lambda post: post["created_at"], reverse=True)
@@ -284,11 +359,18 @@ def dashboard():
     if not user:
         return redirect(url_for("login"))
     users = load_users()
+    ensure_post_ids(users)
+    geez_contacts = [
+        {"username": name, "name": f"{users[name]['first_name']} {users[name]['last_name']}"}
+        for name in user.get("geez", [])
+        if name in users
+    ]
     return render_template(
         "dashboard.html",
         username=user["username"],
         photo_url=photo_url_for(user["username"]),
-        posts=build_feed_posts(users),
+        posts=build_feed_posts(users, user["username"]),
+        geez_contacts=geez_contacts,
     )
 
 
@@ -299,19 +381,69 @@ def create_post():
         return redirect(url_for("login"))
 
     text = request.form.get("post_text", "").strip()
-    if text:
+    media = request.files.get("media")
+    visibility = request.form.get("visibility", "public")
+    if visibility not in {"public", "private", "geez"}:
+        visibility = "public"
+
+    media_filename = None
+    media_type = None
+    if media and media.filename and "." in media.filename:
+        extension = media.filename.rsplit(".", 1)[1].lower()
+        if extension in POST_IMAGE_EXTENSIONS | POST_VIDEO_EXTENSIONS:
+            os.makedirs(app.config["POST_UPLOAD_FOLDER"], exist_ok=True)
+            media_filename = f"{uuid.uuid4().hex}.{extension}"
+            media.save(os.path.join(app.config["POST_UPLOAD_FOLDER"], media_filename))
+            media_type = "image" if extension in POST_IMAGE_EXTENSIONS else "video"
+
+    if text or media_filename:
         users = load_users()
         record = users[user["username"]]
         record.setdefault("posts", [])
+        shared_with = []
+        if visibility == "geez":
+            allowed_geez = set(record.get("geez", []))
+            shared_with = [name for name in request.form.getlist("shared_with") if name in allowed_geez]
         now = datetime.now()
         record["posts"].append(
             {
+                "id": uuid.uuid4().hex,
                 "text": text,
                 "created_at": now.isoformat(timespec="seconds"),
                 "created_label": now.strftime("%b %d, %Y at %-I:%M %p"),
+                "visibility": visibility,
+                "shared_with": shared_with,
+                "media_filename": media_filename,
+                "media_type": media_type,
             }
         )
         save_users(users)
+
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/delete-post/<post_id>", methods=["POST"])
+def delete_post(post_id):
+    """Delete a post only when it belongs to the logged-in user."""
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    record = users.get(user["username"])
+    if not record:
+        return redirect(url_for("dashboard"))
+
+    for index, post in enumerate(record.get("posts", [])):
+        if isinstance(post, dict) and post.get("id") == post_id:
+            removed = record["posts"].pop(index)
+            media_filename = removed.get("media_filename")
+            if media_filename:
+                media_path = os.path.join(app.config["POST_UPLOAD_FOLDER"], secure_filename(media_filename))
+                if os.path.isfile(media_path):
+                    os.remove(media_path)
+            save_users(users)
+            break
 
     return redirect(url_for("dashboard"))
 
@@ -362,6 +494,10 @@ def profile():
         user = viewer  # fall back to your own profile
 
     is_owner = user["username"] == viewer["username"]
+    visible_posts = [
+        post for post in user.get("posts", [])
+        if not isinstance(post, dict) or post_is_visible(post, viewer["username"], user["username"])
+    ]
     return render_template(
         "profile.html",
         user=user,
@@ -371,6 +507,7 @@ def profile():
         geez_count=len(user.get("geez", [])),
         pending_count=len(user.get("pending_sent", [])),
         photo_permission=user.get("photo_permission", False),
+        visible_posts=visible_posts,
     )
 
 
