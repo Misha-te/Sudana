@@ -14,6 +14,36 @@ body {
     line-height: 1.6;
 }
 
+/* Dark mode overrides (simple) */
+.dark body {
+    background: #071023;
+    color: #e6eef8;
+}
+.dark .profile-card,
+.dark .form-card,
+.dark .post,
+.dark .composer,
+.dark .post-editor-dialog {
+    background: #0b1724;
+    color: #e6eef8;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.6);
+}
+.dark .topbar,
+.dark .navbar {
+    background: #071428;
+    color: #e6eef8;
+    border-bottom-color: rgba(255,255,255,0.06);
+}
+.dark .cta {
+    background: #f0c84a;
+    color: #061017;
+}
+.dark a { color: #93c5fd; }
+.dark .muted { color: #9ca3af; }
+.dark .post-text { color: #e6eef8; }
+.dark .avatar { border-color: rgba(255,255,255,0.06); }
+
+
 /* Navbar */
 .navbar {
     display: flex;

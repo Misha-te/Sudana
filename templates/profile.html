@@ -11,6 +11,7 @@
         <a href="{{ url_for('dashboard') }}" class="hamburger back-link" title="Back">&#8592;</a>
         <div class="brand">sudana</div>
         <div class="topbar-actions">
+            <button id="dark-mode-toggle-profile" class="round-icon" title="Toggle dark mode">&#9790;<small id="dark-mode-status-profile"></small></button>
             <a href="{{ url_for('logout') }}" class="logout-top">Log out</a>
         </div>
     </header>
@@ -268,5 +269,24 @@
         });
     </script>
     {% endif %}
+    <script>
+        // Apply theme from localStorage and allow toggling on profile page
+        function applyThemeProfile() {
+            const on = localStorage.getItem('darkMode') === 'on';
+            if (on) document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
+            const status = document.getElementById('dark-mode-status-profile');
+            if (status) status.textContent = on ? 'On' : 'Off';
+        }
+
+        function toggleDarkModeProfile() {
+            const on = localStorage.getItem('darkMode') === 'on';
+            localStorage.setItem('darkMode', on ? 'off' : 'on');
+            applyThemeProfile();
+        }
+
+        document.getElementById('dark-mode-toggle-profile')?.addEventListener('click', toggleDarkModeProfile);
+        window.addEventListener('storage', (e) => { if (e.key === 'darkMode') applyThemeProfile(); });
+        applyThemeProfile();
+    </script>
 </body>
 </html>
