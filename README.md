@@ -1,106 +1,118 @@
-# Sudana ★
+# Sudana
 
-A simple website celebrating the colors and spirit of **South Sudan**. Built with
-Python and [Flask](https://flask.palletsprojects.com/), it has a welcome page,
-sign-up, login, and forgot-password pages — all styled in the South Sudan flag
-palette (black, red, green, blue, and gold).
+Sudana is a small Flask web app for a South Sudanese social community. It lets
+people create an account, log in, search for other users, view profiles, edit
+basic profile details, and upload a profile photo. The interface uses colors
+inspired by the South Sudan flag.
+
+This is an early class-project version of the app, so it uses a simple JSON file
+for storage instead of a full database.
 
 ## Features
 
-- **Welcome page** with a hero banner and **Get Started** / **Login** buttons
-- **Sign-up page** collecting first & last name, username, email, password,
-  gender, hometown, and date of birth
-  - First/last names may only contain **letters** (no numbers or dashes)
-  - **Username** must be unique and space-free
-  - Password must be at least **8 characters** (checked in the browser *and* on the server)
-  - You must be at least **16 years old** to open an account
-  - Hometown suggests South Sudan states and major towns
-- **Real accounts** — sign-ups are saved and passwords are securely **hashed**
-- **Login** with session-based sign-in and a **Forgot password?** link
-- **Forgot-password page** to request a reset link
-- **Home dashboard** (after login) styled like a social feed:
-  - `sudana` top bar with search and messages icons
-  - **My Updates** row of story circles
-  - A **"What is in your mind?"** post composer
-  - **My Geez Posts** feed — posts with avatar, text, image, reaction and comment
-    counts, and Like / Comment / Share buttons
-  - A **bottom navigation bar**: Home, 🤝 MyGeez, ❤️ Dating, 🔔 Notifications,
-    and a **Profile** avatar
-- **Profile page** showing:
-  - Profile picture with a **change-photo** button (owner only). Asks for
-    photo-access permission the first time (phone-style prompt), then opens your
-    device's photo library/camera. The choice is remembered on the server.
-  - Full name and **@username**
-  - **Category** badge (Student, Artist, Musician, …) and **bio** — both editable
-  - **Gender**
-  - **MyGeez count** (public) and **pending MyGeez sent** (visible to you only)
-  - **My Posts**
+- Public welcome page with links to sign up and log in
+- Account creation with server-side validation:
+  - first and last names can only contain letters and spaces
+  - usernames must be unique and cannot contain spaces
+  - emails must be unique
+  - passwords must be at least 8 characters
+  - users must be at least 16 years old
+  - users can enter a South Sudan hometown or choose another country
+- Password hashing with Werkzeug
+- Login, logout, and session-based access to private pages
+- Forgot-password page that shows a reset-link confirmation message
+- Home dashboard styled like a social feed
+- Search page for finding people by name or username
+- Profile pages for the logged-in user and other users
+- Editable profile fields:
+  - category
+  - bio, limited to 105 words
+  - gender
+  - hometown
+- Profile photo uploads saved in `static/uploads/`
+- Local photo-access prompt that remembers when a user has allowed uploads
 
 ## Requirements
 
 - Python 3
 - Flask
 
+Werkzeug is installed automatically with Flask and is used for password hashing.
+
 ## Setup
 
-Install Flask (only needed once):
+Install Flask:
 
 ```bash
 pip3 install flask
 ```
 
-## Running the site
+## Run The App
 
-From the project folder, start the server:
+From the project folder, start the Flask server:
 
 ```bash
 python3 app.py
 ```
 
-Then open your browser to:
+Then open:
 
-```
+```text
 http://127.0.0.1:5001
 ```
 
-To stop the server, press `Ctrl + C` in the terminal.
+To stop the server, press `Ctrl + C`.
 
-> **Note:** The site runs on port **5001** because macOS uses port 5000 for its
-> AirPlay Receiver. If you see "Address already in use," the app is probably
-> already running in another terminal — stop it there first.
+The app runs on port `5001` because macOS often uses port `5000` for AirPlay
+Receiver. If you see an "Address already in use" message, the app may already be
+running in another terminal.
 
-## Project structure
+## Project Structure
 
-```
+```text
 Sudana/
-├── app.py                      # Flask server and page routes
-├── templates/                  # HTML pages
-│   ├── index.html              # welcome page
-│   ├── signup.html             # sign-up form
-│   ├── login.html              # login form
-│   ├── forgot_password.html    # password reset request
-│   ├── dashboard.html          # home page (feed) after login
-│   └── profile.html            # user profile page
-├── static/
-│   ├── style.css               # styling (South Sudan flag colors)
-│   └── uploads/                # uploaded profile pictures (created on first upload)
+├── app.py
+├── README.md
 ├── data/
-│   └── users.json              # saved user accounts (auto-created)
-└── README.md
+│   └── users.json
+├── static/
+│   ├── style.css
+│   └── uploads/
+│       └── uploaded profile photos
+└── templates/
+    ├── dashboard.html
+    ├── edit_profile.html
+    ├── forgot_password.html
+    ├── index.html
+    ├── login.html
+    ├── profile.html
+    ├── search.html
+    └── signup.html
 ```
 
-> Accounts are stored in `data/users.json` (a simple file-based store).
-> `werkzeug`, which handles the password hashing, is installed automatically
-> with Flask.
+## Data Storage
 
-## Notes / next steps
+User accounts are saved in `data/users.json`. Each user record stores profile
+details, hashed password data, connection placeholders, post placeholders, and
+whether the user has granted photo-upload permission.
 
-Accounts are now saved to a JSON file and passwords are hashed, but this is still
-an early version. The **MyGeez**, **Dating**, and **Notifications** sections are
-placeholders, and the dashboard feed shows sample posts (the composer doesn't
-create real posts yet). Planned next steps:
+Uploaded profile photos are saved in `static/uploads/`. Each user can have one
+current profile photo; uploading a new one replaces the old file for that user.
 
-- Let the "What is in your mind?" composer create real posts
-- Build out the MyGeez (connections), Dating, and Notifications sections
-- Move from the JSON file to a real database
-- Send real password-reset emails
+## Current Limitations
+
+- The dashboard feed uses sample posts.
+- The post composer does not create real posts yet.
+- MyGeez connections, Dating, Notifications, and Messages are placeholders.
+- The forgot-password page does not send real email.
+- The JSON file works for development, but a real deployment should use a
+  database and a secure secret key.
+
+## Possible Next Steps
+
+- Let users create, edit, and delete posts
+- Build the MyGeez connection request flow
+- Add real notifications and messaging
+- Send password-reset emails
+- Move account data from `users.json` into a database
+- Add automated tests for signup, login, profile editing, and uploads
