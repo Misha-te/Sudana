@@ -20,6 +20,9 @@ file for storage instead of a full database.
   - users can enter a South Sudan hometown or choose another country
 - Password hashing with Werkzeug
 - Login, logout, and session-based access to private pages
+- Account menu beside the Sudana logo with placeholders for Settings & Privacy,
+  Support from our team, Dark mode, and Premium modes
+- Working account-menu logout for the signed-in username
 - Forgot-password page that shows a reset-link confirmation message
 - Home dashboard styled like a social feed
 - Working post composer that saves new posts to the local user data file
@@ -42,7 +45,20 @@ Werkzeug is installed automatically with Flask and is used for password hashing.
 
 ## Setup
 
-Install Flask:
+1. Open a terminal and move into the project folder:
+
+```bash
+cd "/Users/misha/Documents/Spring 2026/Comp-127/Sudana"
+```
+
+2. (Recommended) Create and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+3. Install Flask:
 
 ```bash
 pip3 install flask
@@ -50,7 +66,7 @@ pip3 install flask
 
 ## Run The App
 
-From the project folder, start the Flask server:
+4. Start the Flask server:
 
 ```bash
 python3 app.py
@@ -63,6 +79,14 @@ http://127.0.0.1:5001
 ```
 
 To stop the server, press `Ctrl + C`.
+
+## Using the Account Menu
+
+After logging in, select the three-line icon to the left of the **sudana** logo.
+It opens an account menu for the current user. The Settings & Privacy, Support
+from our team, Dark mode, and Premium modes entries are intentionally marked
+"Coming soon." Select **Log out @username** to end the current session and
+return to the welcome page.
 
 The app runs on port `5001` because macOS often uses port `5000` for AirPlay
 Receiver. If you see an "Address already in use" message, the app may already be
@@ -104,6 +128,8 @@ current profile photo; uploading a new one replaces the old file for that user.
 
 - The dashboard feed shows sample posts only when no real posts have been made.
 - MyGeez connections, Dating, Notifications, and Messages are placeholders.
+- Settings & Privacy, Support from our team, Dark mode, and Premium modes in
+  the account menu are placeholders.
 - The forgot-password page does not send real email.
 - The JSON file works for development, but a real deployment should use a
   database and a secure secret key.
