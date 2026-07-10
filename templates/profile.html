@@ -74,8 +74,15 @@
                 {% if is_owner %}My Posts{% else %}{{ user.first_name }}'s Posts{% endif %}
             </h2>
             {% if user.posts %}
-                {% for post in user.posts %}
-                <div class="mini-post">{{ post }}</div>
+                {% for post in user.posts|reverse %}
+                <div class="mini-post">
+                    {% if post is mapping %}
+                    <p>{{ post.text }}</p>
+                    <span>{{ post.created_label }}</span>
+                    {% else %}
+                    <p>{{ post }}</p>
+                    {% endif %}
+                </div>
                 {% endfor %}
             {% else %}
             <p class="muted">No posts yet.</p>
