@@ -5,8 +5,8 @@ people create an account, log in, search for other users, view profiles, edit
 basic profile details, and upload a profile photo. The interface uses colors
 inspired by the South Sudan flag.
 
-This is an early class-project version of the app, so it uses a simple JSON file
-for storage instead of a full database.
+This is an early personal-project version of the app, so it uses a simple JSON
+file for storage instead of a full database.
 
 ## Features
 
