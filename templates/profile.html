@@ -77,7 +77,8 @@
                 {% for post in visible_posts|reverse %}
                 <article class="post mini-post">
                     <header class="post-head">
-                        <div class="avatar-sm grad-user">{{ user.first_name[0]|upper }}</div>
+                        <div class="avatar-sm grad-user"
+                             {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ user.first_name[0]|upper }}</div>
                         <div class="post-meta">
                             <strong>{{ user.first_name }} {{ user.last_name }}</strong>
                             <span>@{{ user.username }}{% if post.created_label %} · {{ post.created_label }}{% endif %}</span>
