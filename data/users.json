@@ -12,7 +12,18 @@
     "category": "Athlete",
     "geez": [],
     "pending_sent": [],
-    "posts": [],
+    "posts": [
+      {
+        "text": "Yoo bro",
+        "created_at": "2026-07-09T23:53:49",
+        "created_label": "Jul 09, 2026 at 11:53 PM"
+      },
+      {
+        "text": "I am killing it here",
+        "created_at": "2026-07-09T23:54:17",
+        "created_label": "Jul 09, 2026 at 11:54 PM"
+      }
+    ],
     "photo_permission": true
   }
 }
