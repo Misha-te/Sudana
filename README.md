@@ -22,15 +22,7 @@ file for storage instead of a full database.
 - Login, logout, and session-based access to private pages
 - Account menu beside the Sudana logo with placeholders for Settings & Privacy,
   Support from our team, Dark mode, and Premium modes
- # Sudana
-
- Sudana is a small Flask web app for a South Sudanese social community. It
- supports account creation, login, profile editing, profile photo uploads,
- a home feed with posts (text + optional photo/video), and simple privacy
- controls (Public / Private / Certain MyGeez).
-
- This project uses a JSON file for storage (`data/users.json`) and is intended
- for learning and prototyping — not production.
+  on.
 
  ## Quick Start
 
