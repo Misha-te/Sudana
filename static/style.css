@@ -498,6 +498,13 @@ body {
     color: #1f2937;
 }
 
+.mini-post span {
+    display: block;
+    color: #6b7280;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
 /* Permission prompt (phone-style) */
 .overlay {
     position: fixed;
@@ -844,6 +851,22 @@ body {
 .composer input:focus {
     outline: none;
     border-color: #0f47af;
+}
+
+.post-submit {
+    background: #0f47af;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.65rem 1rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.post-submit:hover {
+    background: #0d3a8f;
 }
 
 .avatar-sm {
