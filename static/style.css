@@ -635,6 +635,111 @@ body {
     color: #111;
 }
 
+.topbar .hamburger:hover,
+.topbar .hamburger:focus-visible {
+    color: #0f47af;
+    outline: none;
+}
+
+/* Account menu opened by the three-line button beside the logo. */
+.account-menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 4.5rem 1rem 1rem;
+    background: rgba(0, 0, 0, 0.38);
+}
+
+.account-menu-overlay[hidden] {
+    display: none;
+}
+
+.account-menu {
+    width: min(360px, 100%);
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+    overflow: hidden;
+}
+
+.account-menu-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.account-menu-kicker {
+    color: #6b7280;
+    font-size: 0.78rem;
+}
+
+.account-menu h2 {
+    color: #111;
+    font-size: 1.05rem;
+}
+
+.menu-close {
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 50%;
+    background: #eef0f2;
+    color: #111;
+    cursor: pointer;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.account-menu-items {
+    padding: 0.45rem;
+}
+
+.account-menu-item {
+    width: 100%;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.7rem 0.75rem;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #1f2937;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
+}
+
+button.account-menu-item {
+    cursor: default;
+}
+
+.account-menu-item small {
+    margin-left: auto;
+    color: #6b7280;
+    font-size: 0.72rem;
+    font-weight: 400;
+}
+
+.logout-menu-item {
+    color: #b91c1c;
+    cursor: pointer;
+}
+
+.account-menu-item:hover,
+.account-menu-item:focus-visible,
+.menu-close:hover,
+.menu-close:focus-visible {
+    background: #f3f4f6;
+    outline: none;
+}
+
 .topbar .brand {
     font-size: 1.7rem;
     font-weight: 800;
