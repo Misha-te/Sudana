@@ -73,8 +73,8 @@
             <h2 class="section-title">
                 {% if is_owner %}My Posts{% else %}{{ user.first_name }}'s Posts{% endif %}
             </h2>
-            {% if user.posts %}
-                {% for post in user.posts|reverse %}
+            {% if visible_posts %}
+                {% for post in visible_posts|reverse %}
                 <div class="mini-post">
                     {% if post is mapping %}
                     <p>{{ post.text }}</p>
