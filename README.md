@@ -22,130 +22,88 @@ file for storage instead of a full database.
 - Login, logout, and session-based access to private pages
 - Account menu beside the Sudana logo with placeholders for Settings & Privacy,
   Support from our team, Dark mode, and Premium modes
-- Working account-menu logout for the signed-in username
-- Forgot-password page that shows a reset-link confirmation message
-- Home dashboard styled like a social feed
-- Post composer with public, private, or selected-MyGeez visibility
-- Optional photo and video attachments for posts
-- Clickable links in post text
-- Owners can delete only their own posts
-- Search page for finding people by name or username
-- Profile pages for the logged-in user and other users
-- Editable profile fields:
-  - category
-  - bio, limited to 105 words
-  - gender
-  - hometown
-- Profile photo uploads saved in `static/uploads/`
-- Local photo-access prompt that remembers when a user has allowed uploads
+ # Sudana
 
-## Requirements
+ Sudana is a small Flask web app for a South Sudanese social community. It
+ supports account creation, login, profile editing, profile photo uploads,
+ a home feed with posts (text + optional photo/video), and simple privacy
+ controls (Public / Private / Certain MyGeez).
 
-- Python 3
-- Flask
+ This project uses a JSON file for storage (`data/users.json`) and is intended
+ for learning and prototyping — not production.
 
-Werkzeug is installed automatically with Flask and is used for password hashing.
+ ## Quick Start
 
-## Setup
+ macOS (recommended):
 
-1. Open a terminal and move into the project folder:
+ ```bash
+ cd "/Users/misha/Documents/Spring 2026/Comp-127/Sudana"
+ python3 -m venv .venv
+ source .venv/bin/activate
+ pip install flask
+ python app.py
+ ```
 
-```bash
-cd "/Users/misha/Documents/Spring 2026/Comp-127/Sudana"
-```
+ Then open http://127.0.0.1:5001 in your browser.
 
-2. (Recommended) Create and activate a virtual environment:
+ Note: the app runs on port `5001` by default to avoid conflicts on macOS.
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
+ ## Key Routes & Pages
 
-3. Install Flask:
+ - `GET /` — Welcome page (`templates/index.html`)
+ - `GET|POST /signup` — Create account
+ - `GET|POST /login` — Sign in
+ - `GET /dashboard` — Home feed (`templates/dashboard.html`)
+ - `POST /create-post` — Create a post (form on dashboard)
+ - `POST /update-post/<post_id>` — Update a post (edit dialog)
+ - `POST /delete-post/<post_id>` — Delete a post (owner-only)
+ - `GET /profile` — View a profile (`templates/profile.html`)
 
-```bash
-pip3 install flask
-```
+ ## Recent Changes (post/profile parity)
 
-## Run The App
+ - Posts on the profile page now render similarly to the home feed so the
+   experience is consistent between `dashboard` and `profile`.
+ - Owners can now edit post text, change privacy (Public / Private / Certain
+   MyGeez), and delete posts from their `profile` page — the same controls
+   that were previously available only on the home feed.
+ - The profile route now exposes `geez_contacts` to the template so the
+   post editor can offer the same MyGeez sharing UI as on the dashboard.
 
-4. Start the Flask server:
+ Files changed: [app.py](app.py), [templates/profile.html](templates/profile.html)
 
-```bash
-python3 app.py
-```
+ ## Features (summary)
 
-Then open:
+ - Signup/login with server-side validation and password hashing (Werkzeug)
+ - Profile editing: category, bio (105-word limit), gender, hometown, photo
+ - Post composer with optional image/video upload and visibility controls
+ - Post edit & delete for post owners (available on both feed and profile)
+ - Simple search for people by name or username
 
-```text
-http://127.0.0.1:5001
-```
+ ## Data & Uploads
 
-To stop the server, press `Ctrl + C`.
+ - Accounts: `data/users.json`
+ - Profile photos: `static/uploads/` (one per user; new upload replaces old)
+ - Post media: `static/uploads/posts/`
 
-## Using the Account Menu
+ ## Limitations
 
-After logging in, select the three-line icon to the left of the **sudana** logo.
-It opens an account menu for the current user. The Settings & Privacy, Support
-from our team, Dark mode, and Premium modes entries are intentionally marked
-"Coming soon." Select **Log out @username** to end the current session and
-return to the welcome page.
+ - The app uses a JSON file for persistence — use a real database in production.
+ - Email reset flow is a non-functional placeholder.
+ - Some features (Messages, Notifications, MyGeez requests) are placeholders.
 
-The app runs on port `5001` because macOS often uses port `5000` for AirPlay
-Receiver. If you see an "Address already in use" message, the app may already be
-running in another terminal.
+ ## Next Steps (suggested)
 
-## Project Structure
+ - Add tests for auth, profile edits, and post actions.
+ - Add a database (SQLite/Postgres) and migrations.
+ - Improve frontend styling for the post editor on profile pages.
 
-```text
-Sudana/
-├── app.py
-├── README.md
-├── data/
-│   └── users.json
-├── static/
-│   ├── style.css
-│   └── uploads/
-│       └── uploaded profile photos
-└── templates/
-    ├── dashboard.html
-    ├── edit_profile.html
-    ├── forgot_password.html
-    ├── index.html
-    ├── login.html
-    ├── profile.html
-    ├── search.html
-    └── signup.html
-```
+ ## Questions / Help
 
-## Data Storage
+ If you want, I can:
+ - Run the app and verify UI flows in a browser.
+ - Add automated smoke tests for the post create/edit/delete flow.
+ - Tweak CSS so the profile post editor visually matches the dashboard.
 
-User accounts are saved in `data/users.json`. Each user record stores profile
-details, hashed password data, connection placeholders, saved posts, and whether
-the user has granted photo-upload permission.
+ ---
 
-Uploaded profile photos are saved in `static/uploads/`. Each user can have one
-current profile photo; uploading a new one replaces the old file for that user.
-
-Post photos and videos are saved in `static/uploads/posts/`. Posts can be set to
-**Public**, **Private** (author only), or **Certain MyGeez**. The last option
-shares a post only with the accepted MyGeez selected while creating it.
-
-## Current Limitations
-
-- The dashboard feed shows sample posts only when no real posts have been made.
-- MyGeez connections, Dating, Notifications, and Messages are placeholders.
-- Settings & Privacy, Support from our team, Dark mode, and Premium modes in
-  the account menu are placeholders.
-- The forgot-password page does not send real email.
-- The JSON file works for development, but a real deployment should use a
-  database and a secure secret key.
-
-## Possible Next Steps
-
-- Let users edit posts
-- Build the MyGeez connection request flow
-- Add real notifications and messaging
-- Send password-reset emails
-- Move account data from `users.json` into a database
-- Add automated tests for signup, login, profile editing, and uploads
+ Updated: July 10, 2026
