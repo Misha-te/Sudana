@@ -339,6 +339,7 @@ def signup():
             "category": "",
             "geez": [],          # accepted MyGeez connections (usernames)
             "pending_sent": [],  # MyGeez requests you've sent, still pending
+            "notifications": [], # MyGeez requests and acceptance updates
             "posts": [],
             "photo_permission": False,
         }
@@ -664,6 +665,16 @@ def add_geez(username):
         pending_sent = viewer_record.setdefault("pending_sent", [])
         if not already_connected and not has_incoming_request and username not in pending_sent:
             pending_sent.append(username)
+            now = datetime.now()
+            users[username].setdefault("notifications", []).append(
+                {
+                    "id": uuid.uuid4().hex,
+                    "type": "geez_request",
+                    "actor_username": viewer_username,
+                    "created_at": now.isoformat(),
+                    "created_label": now.strftime("%b %d, %Y at %-I:%M %p"),
+                }
+            )
             save_users(users)
 
     return redirect(request.referrer or url_for("my_geez"))
@@ -686,6 +697,26 @@ def accept_geez(username):
             viewer_geez.append(username)
         if viewer_username not in requester_geez:
             requester_geez.append(viewer_username)
+        # The request is resolved, so replace it with an acceptance notice for
+        # the sender. Rejections intentionally create no notification.
+        users[viewer_username]["notifications"] = [
+            notice
+            for notice in users[viewer_username].get("notifications", [])
+            if not (
+                notice.get("type") == "geez_request"
+                and notice.get("actor_username") == username
+            )
+        ]
+        now = datetime.now()
+        requester.setdefault("notifications", []).append(
+            {
+                "id": uuid.uuid4().hex,
+                "type": "geez_accepted",
+                "actor_username": viewer_username,
+                "created_at": now.isoformat(),
+                "created_label": now.strftime("%b %d, %Y at %-I:%M %p"),
+            }
+        )
         save_users(users)
 
     return redirect(url_for("my_geez"))
@@ -701,9 +732,50 @@ def reject_geez(username):
     requester = users.get(username)
     if requester and viewer["username"] in requester.get("pending_sent", []):
         requester["pending_sent"].remove(viewer["username"])
+        users[viewer["username"]]["notifications"] = [
+            notice
+            for notice in users[viewer["username"]].get("notifications", [])
+            if not (
+                notice.get("type") == "geez_request"
+                and notice.get("actor_username") == username
+            )
+        ]
         save_users(users)
 
     return redirect(url_for("my_geez"))
+
+
+@app.route("/notifications")
+def notifications():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    notices = []
+    for notice in reversed(viewer.get("notifications", [])):
+        actor = users.get(notice.get("actor_username"))
+        if not actor:
+            continue
+        notices.append(
+            {
+                **notice,
+                "actor_name": f"{actor['first_name']} {actor['last_name']}",
+                "actor_initial": actor["first_name"][0].upper(),
+                "actor_photo_url": photo_url_for(actor["username"]),
+                "is_pending": (
+                    notice.get("type") == "geez_request"
+                    and viewer["username"] in actor.get("pending_sent", [])
+                ),
+            }
+        )
+
+    return render_template(
+        "notifications.html",
+        user=viewer,
+        notices=notices,
+        photo_url=photo_url_for(viewer["username"]),
+    )
 
 
 @app.route("/profile")

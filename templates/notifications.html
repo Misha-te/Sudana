@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications | Sudana</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="app-body">
+    <header class="topbar">
+        <a href="{{ url_for('dashboard') }}" class="hamburger back-link" title="Back">&#8592;</a>
+        <div class="brand">Notifications</div>
+    </header>
+
+    <main class="feed">
+        <h1 class="section-title">Notifications</h1>
+        {% if notices %}
+            {% for notice in notices %}
+            <article class="profile-card notification-card">
+                <a href="{{ url_for('profile', name=notice.actor_username) }}" class="avatar-sm grad-user"
+                   {% if notice.actor_photo_url %}style="background-image: url('{{ notice.actor_photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ notice.actor_initial }}</a>
+                <div class="notification-content">
+                    {% if notice.type == 'geez_request' %}
+                    <p>You received a My G request from <strong>{{ notice.actor_name }}</strong>.</p>
+                    {% elif notice.type == 'geez_accepted' %}
+                    <p><strong>{{ notice.actor_name }}</strong> accepted your My G request.</p>
+                    {% endif %}
+                    <span class="notification-time">{{ notice.created_label }}</span>
+                    {% if notice.type == 'geez_request' and notice.is_pending %}
+                    <div class="notification-actions">
+                        <form method="POST" action="{{ url_for('accept_geez', username=notice.actor_username) }}">
+                            <button type="submit" class="request-accept">Accept</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('reject_geez', username=notice.actor_username) }}">
+                            <button type="submit" class="request-reject">Reject</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </article>
+            {% endfor %}
+        {% else %}
+        <section class="profile-card geez-empty">
+            <div class="geez-empty-icon">&#128276;</div>
+            <h2>No notifications yet</h2>
+            <p class="muted">Your My G requests and accepted requests will appear here.</p>
+        </section>
+        {% endif %}
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="{{ url_for('dashboard') }}"><span class="nav-ico">&#127968;</span><span>Home</span></a>
+        <a href="{{ url_for('my_geez') }}"><span class="nav-ico">&#129309;</span><span>MyGeez</span></a>
+        <a href="#"><span class="nav-ico">&#10084;&#65039;</span><span>Dating</span></a>
+        <a href="{{ url_for('notifications') }}" class="active"><span class="nav-ico">&#128276;</span><span>Notifications</span></a>
+        <a href="{{ url_for('profile') }}">
+            <span class="nav-avatar grad-user"
+                  {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ user.first_name[0]|upper }}</span>
+            <span>Profile</span>
+        </a>
+    </nav>
+</body>
+</html>
