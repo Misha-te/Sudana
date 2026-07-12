@@ -63,6 +63,18 @@ You can log in with either the username or email address.
 * Search users by name
 * Search users by username
 * View public profiles
+* Send MyGeez connection requests from a user's profile
+* Review incoming and outgoing requests in MyGeez
+* Accept or reject incoming requests
+* Create mutual MyGeez connections after acceptance
+
+### 🔔 Notifications
+
+* Receive timestamped notifications for new MyGeez requests
+* Accept or reject requests directly from notifications
+* Notify the sender when a request is accepted
+* Keep rejected requests private without notifying the sender
+* Display the current notification count on the navigation bell
 
 ### 🎨 User Experience
 
@@ -161,6 +173,10 @@ in your browser.
 * Control post visibility
 * Search for users
 * View profiles
+* Send, accept, and reject MyGeez requests
+* View accepted MyGeez connections
+* Receive MyGeez request and acceptance notifications
+* See a live notification count on the bell
 
 ---
 
@@ -187,9 +203,8 @@ This approach is suitable for development and learning purposes.
 
 * Uses JSON instead of a production database
 * No real-time messaging yet
-* Notifications are placeholders
 * Password reset is not implemented
-* Friend/MyGeez requests are still under development
+* Notifications update when a page is loaded rather than in real time
 
 ---
 
@@ -197,7 +212,7 @@ This approach is suitable for development and learning purposes.
 
 ### Community Features
 
-* MyGeez friend system
+* MyGeez request cancellation and connection removal
 * Direct messaging
 * Group discussions
 * Community forums
