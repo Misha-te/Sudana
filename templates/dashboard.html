@@ -129,11 +129,13 @@
                 {% endif %}
             {% endif %}
             <div class="post-stats">
-                <span class="reactions">&#128077; 0</span>
+                <span class="reactions">&#128077; {{ post.likes_count }}</span>
                 <span class="comments">0 Comments</span>
             </div>
             <div class="post-actions">
-                <button>&#128077; Like</button>
+                <form method="POST" action="{{ url_for('like_post', post_id=post.id) }}">
+                    <button type="submit">&#128077; {% if post.liked_by_current_user %}Unlike{% else %}Like{% endif %}</button>
+                </form>
                 <button>&#128172; Comment</button>
                 <button>&#10150; Share</button>
             </div>
