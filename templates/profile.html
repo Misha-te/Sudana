@@ -115,6 +115,24 @@
                             <img class="post-media profile-post-media" src="{{ url_for('static', filename='uploads/posts/' + post.media_filename) }}" alt="Photo attached to this post">
                             {% endif %}
                         {% endif %}
+                        <div class="post-stats">
+                            <span class="reactions">
+                                {% if post.reaction_summary %}
+                                    {% for reaction in post.reaction_summary %}
+                                        {{ reaction.emoji }} {{ reaction.count }}
+                                    {% endfor %}
+                                {% else %}
+                                    No reactions yet
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="post-actions">
+                            <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" class="reaction-buttons">
+                                {% for key, emoji in reactions.items() %}
+                                <button type="submit" name="reaction" value="{{ key }}" class="reaction-button{% if post.current_user_reaction == key %} active{% endif %}">{{ emoji }} {{ key|capitalize }}</button>
+                                {% endfor %}
+                            </form>
+                        </div>
                     {% else %}
                         <p>{{ post }}</p>
                     {% endif %}
