@@ -19,11 +19,13 @@ Try the platform now! If one link is unavailable, try the other.
 
 Want to test the app without creating an account? Use one of these:
 
-| Username | Password | Role |
-|----------|----------|------|
-| `demo` | `demo123456` | Demo user with welcome post |
-| `test` | `test123456` | Test account with sample content |
-| `visitor` | `visitor123456` | Guest visitor account |
+| Username | Email | Password |
+|----------|-------|----------|
+| `demo` | `demo@sudana.test` | `demo123456` |
+| `test` | `test@sudana.test` | `test123456` |
+| `visitor` | `visitor@sudana.test` | `visitor123456` |
+
+You can log in with either the username or email address.
 
 ---
 
