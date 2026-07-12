@@ -132,6 +132,7 @@ def ensure_post_ids(users):
                 post["visibility"] = "public"
                 changed = True
             post.setdefault("shared_with", [])
+            post.setdefault("likes", [])
     if changed:
         save_users(users)
 
@@ -170,6 +171,7 @@ def build_feed_posts(users, viewer_username):
                 if not post_is_visible(post, viewer_username, user["username"]):
                     continue
                 media_filename = post.get("media_filename")
+                likes = post.get("likes", [])
                 posts.append(
                     {
                         "id": post.get("id"),
@@ -185,6 +187,8 @@ def build_feed_posts(users, viewer_username):
                         "media_type": post.get("media_type"),
                         "shared_with": post.get("shared_with", []),
                         "is_owner": user["username"] == viewer_username,
+                        "likes_count": len(likes),
+                        "liked_by_current_user": viewer_username in likes,
                     }
                 )
             else:
@@ -202,6 +206,8 @@ def build_feed_posts(users, viewer_username):
                         "media_type": None,
                         "shared_with": [],
                         "is_owner": user["username"] == viewer_username,
+                        "likes_count": 0,
+                        "liked_by_current_user": False,
                     }
                 )
     return sorted(posts, key=lambda post: post["created_at"], reverse=True)
@@ -417,6 +423,7 @@ def create_post():
                 "shared_with": shared_with,
                 "media_filename": media_filename,
                 "media_type": media_type,
+                "likes": [],
             }
         )
         save_users(users)
@@ -484,6 +491,29 @@ def update_post(post_id):
     return redirect(url_for("dashboard"))
 
 
+@app.route("/like-post/<post_id>", methods=["POST"])
+def like_post(post_id):
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    for author in users.values():
+        for post in author.get("posts", []):
+            if isinstance(post, dict) and post.get("id") == post_id:
+                if not post_is_visible(post, user["username"], author["username"]):
+                    return redirect(url_for("dashboard"))
+                likes = post.setdefault("likes", [])
+                if user["username"] in likes:
+                    likes.remove(user["username"])
+                else:
+                    likes.append(user["username"])
+                save_users(users)
+                return redirect(request.referrer or url_for("dashboard"))
+
+    return redirect(url_for("dashboard"))
+
+
 @app.route("/search")
 def search():
     viewer = current_user()
@@ -534,10 +564,19 @@ def profile():
     ensure_post_ids(users)
 
     is_owner = user["username"] == viewer["username"]
-    visible_posts = [
-        post for post in user.get("posts", [])
-        if not isinstance(post, dict) or post_is_visible(post, viewer["username"], user["username"])
-    ]
+    visible_posts = []
+    for post in user.get("posts", []):
+        if isinstance(post, dict):
+            if not post_is_visible(post, viewer["username"], user["username"]):
+                continue
+            visible_posts.append({
+                **post,
+                "likes_count": len(post.get("likes", [])),
+                "liked_by_current_user": viewer["username"] in post.get("likes", []),
+            })
+        else:
+            visible_posts.append(post)
+    
 
     # If you're viewing your own profile, expose your MyGeez contacts so
     # the post editor can offer the same privacy/sharing UI as on the feed.
