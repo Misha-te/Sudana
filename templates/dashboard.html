@@ -141,10 +141,13 @@
                 <span class="comments">0 Comments</span>
             </div>
             <div class="post-actions">
-                <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" class="reaction-buttons">
-                    {% for key, emoji in reactions.items() %}
-                    <button type="submit" name="reaction" value="{{ key }}" class="reaction-button{% if post.current_user_reaction == key %} active{% endif %}">{{ emoji }} {{ key|capitalize }}</button>
-                    {% endfor %}
+                <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" class="reaction-picker">
+                    <button type="submit" name="reaction" value="like" class="reaction-main{% if post.current_user_reaction == 'like' %} active{% endif %}">👍 Like</button>
+                    <div class="reaction-menu" aria-label="More reactions">
+                        {% for key, emoji in reactions.items() if key != 'like' %}
+                        <button type="submit" name="reaction" value="{{ key }}" class="reaction-menu-button{% if post.current_user_reaction == key %} active{% endif %}">{{ emoji }}</button>
+                        {% endfor %}
+                    </div>
                 </form>
                 <button>&#128172; Comment</button>
                 <button>&#10150; Share</button>
@@ -358,6 +361,44 @@
         }
 
         document.getElementById('dark-mode-toggle')?.addEventListener('click', toggleDarkMode);
+
+        document.querySelectorAll('.reaction-picker').forEach((picker) => {
+            const mainButton = picker.querySelector('.reaction-main');
+            let longPressTimer = null;
+            let longPressActive = false;
+
+            const cancelLongPress = () => {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            };
+
+            if (!mainButton) return;
+
+            mainButton.addEventListener('pointerdown', () => {
+                longPressActive = false;
+                longPressTimer = setTimeout(() => {
+                    picker.classList.add('open');
+                    longPressActive = true;
+                }, 450);
+            });
+
+            mainButton.addEventListener('pointerup', (event) => {
+                cancelLongPress();
+                if (longPressActive) {
+                    event.preventDefault();
+                    longPressActive = false;
+                }
+            });
+
+            mainButton.addEventListener('pointercancel', cancelLongPress);
+            mainButton.addEventListener('pointerleave', cancelLongPress);
+
+            picker.addEventListener('pointerleave', () => {
+                picker.classList.remove('open');
+            });
+        });
         // Keep theme in sync across tabs
         window.addEventListener('storage', (e) => { if (e.key === 'darkMode') applyTheme(); });
         // Apply on load
