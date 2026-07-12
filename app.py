@@ -97,6 +97,13 @@ def current_user():
     return None
 
 
+@app.context_processor
+def inject_notification_count():
+    """Make the current notification total available to every page."""
+    user = current_user()
+    return {"notification_count": len(user.get("notifications", [])) if user else 0}
+
+
 # ---------- Profile photo helpers ----------
 
 def find_profile_photo(username):

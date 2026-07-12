@@ -269,7 +269,7 @@
             <span>Dating</span>
         </a>
         <a href="{{ url_for('notifications') }}">
-            <span class="nav-ico">&#128276;</span>
+            <span class="nav-ico notification-bell">&#128276;{% if notification_count >= 1 %}<span class="notification-badge">{{ notification_count }}</span>{% endif %}</span>
             <span>Notifications</span>
         </a>
         <a href="{{ url_for('profile', name=username) }}">
