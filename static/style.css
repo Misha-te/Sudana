@@ -1311,10 +1311,17 @@ button.account-menu-item {
 
 .post-actions {
     display: flex;
+    gap: 0.5rem;
+    align-items: center;
 }
 
-.post-actions button {
-    flex: 1;
+.post-actions > button,
+.post-actions > form {
+    flex: none;
+}
+
+.post-actions button,
+.post-actions form button {
     background: none;
     border: none;
     padding: 0.7rem;
@@ -1325,8 +1332,66 @@ button.account-menu-item {
     font-family: inherit;
 }
 
-.post-actions button:hover {
+.post-actions button:hover,
+.post-actions form button:hover {
     background: #f5f5f5;
+}
+
+.reaction-picker {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.reaction-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    padding: 0.7rem 1rem;
+    background: #f8fafc;
+    transition: background 0.2s, color 0.2s;
+}
+
+.reaction-main.active {
+    background: #e0f2fe;
+    color: #0c4a6e;
+}
+
+.reaction-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    z-index: 2;
+    padding: 0.35rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    white-space: nowrap;
+}
+
+.reaction-menu-button {
+    background: #f8fafc;
+    border: none;
+    border-radius: 999px;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0.15rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.reaction-menu-button.active {
+    background: #e0f2fe;
+    color: #0c4a6e;
+}
+
+.reaction-picker:hover .reaction-menu,
+.reaction-picker:focus-within .reaction-menu,
+.reaction-picker.open .reaction-menu {
+    display: inline-flex;
 }
 
 /* Bottom navigation */

@@ -79,7 +79,10 @@
         "media_type": null,
         "likes": [
           "Misha_Awan"
-        ]
+        ],
+        "reactions": {
+          "Misha_Awan": "like"
+        }
       },
       {
         "id": "3ded892231ea46418581ae75591d6570",
@@ -92,7 +95,8 @@
         "media_type": null,
         "likes": [
           "Misha_Awan"
-        ]
+        ],
+        "reactions": {}
       }
     ],
     "photo_permission": true
