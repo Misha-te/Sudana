@@ -15,6 +15,16 @@ This project is currently in active development and serves as both a learning ex
 
 Try the platform now! If one link is unavailable, try the other.
 
+### Trial Accounts
+
+Want to test the app without creating an account? Use one of these:
+
+| Username | Password | Role |
+|----------|----------|------|
+| `demo` | `demo123456` | Demo user with welcome post |
+| `test` | `test123456` | Test account with sample content |
+| `visitor` | `visitor123456` | Guest visitor account |
+
 ---
 
 ## ✨ Features
