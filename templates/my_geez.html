@@ -85,7 +85,7 @@
             <span class="nav-ico">&#129309;</span><span>MyGeez</span>
         </a>
         <a href="#"><span class="nav-ico">&#10084;&#65039;</span><span>Dating</span></a>
-        <a href="{{ url_for('notifications') }}"><span class="nav-ico">&#128276;</span><span>Notifications</span></a>
+        <a href="{{ url_for('notifications') }}"><span class="nav-ico notification-bell">&#128276;{% if notification_count >= 1 %}<span class="notification-badge">{{ notification_count }}</span>{% endif %}</span><span>Notifications</span></a>
         <a href="{{ url_for('profile') }}">
             <span class="nav-avatar grad-user"
                   {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ user.first_name[0]|upper }}</span>
