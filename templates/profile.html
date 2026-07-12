@@ -66,6 +66,12 @@
 
             {% if is_owner %}
             <a href="{{ url_for('edit_profile') }}" class="cta form-submit">Edit profile</a>
+            {% elif not is_geez %}
+            <form method="POST" action="{{ url_for('add_geez', username=user.username) }}" class="profile-geez-action">
+                <button type="submit" class="cta form-submit">Add G</button>
+            </form>
+            {% else %}
+            <a href="{{ url_for('my_geez') }}" class="cta form-submit connected-geez">&#10003; G</a>
             {% endif %}
         </div>
 
@@ -235,7 +241,7 @@
             <span class="nav-ico">&#127968;</span>
             <span>Home</span>
         </a>
-        <a href="#">
+        <a href="{{ url_for('my_geez') }}">
             <span class="nav-ico">&#129309;</span>
             <span>MyGeez</span>
         </a>

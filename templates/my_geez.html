@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyGeez | Sudana</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="app-body">
+    <header class="topbar">
+        <a href="{{ url_for('dashboard') }}" class="hamburger back-link" title="Back">&#8592;</a>
+        <div class="brand">MyGeez</div>
+        <div class="topbar-actions">
+            <a href="{{ url_for('search') }}" class="round-icon" title="Find a G" aria-label="Find a G">&#128269;</a>
+        </div>
+    </header>
+
+    <main class="feed">
+        <div class="posts-head">
+            <h1 class="section-title">My Gs</h1>
+            <a href="{{ url_for('search') }}" class="cta">Add G</a>
+        </div>
+
+        {% if contacts %}
+            {% for person in contacts %}
+            <a class="result-row" href="{{ url_for('profile', name=person.username) }}">
+                <span class="avatar-sm grad-user"
+                      {% if person.photo_url %}style="background-image: url('{{ person.photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ person.initial }}</span>
+                <span class="result-info">
+                    <strong>{{ person.name }}</strong>
+                    <span class="result-username">@{{ person.username }}</span>
+                </span>
+                {% if person.category %}<span class="category-badge">{{ person.category }}</span>{% endif %}
+            </a>
+            {% endfor %}
+        {% else %}
+        <section class="profile-card geez-empty">
+            <div class="geez-empty-icon">&#129309;</div>
+            <h2>No Gs yet</h2>
+            <p class="muted">Find someone you know and add them to MyGeez.</p>
+            <a href="{{ url_for('search') }}" class="cta form-submit">Add your first G</a>
+        </section>
+        {% endif %}
+    </main>
+
+    <nav class="bottom-nav">
+        <a href="{{ url_for('dashboard') }}">
+            <span class="nav-ico">&#127968;</span><span>Home</span>
+        </a>
+        <a href="{{ url_for('my_geez') }}" class="active">
+            <span class="nav-ico">&#129309;</span><span>MyGeez</span>
+        </a>
+        <a href="#"><span class="nav-ico">&#10084;&#65039;</span><span>Dating</span></a>
+        <a href="#"><span class="nav-ico">&#128276;</span><span>Notifications</span></a>
+        <a href="{{ url_for('profile') }}">
+            <span class="nav-avatar grad-user"
+                  {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ user.first_name[0]|upper }}</span>
+            <span>Profile</span>
+        </a>
+    </nav>
+</body>
+</html>
