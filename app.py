@@ -52,6 +52,16 @@ CATEGORIES = [
     "Other",
 ]
 
+# Reactions allowed on a post.
+REACTIONS = {
+    "like": "👍",
+    "love": "❤️",
+    "joy": "😂",
+    "wow": "😮",
+    "sad": "😢",
+    "pray": "🙏",
+}
+
 # Names may only contain letters and spaces (no numbers or dashes)
 NAME_PATTERN = re.compile(r"^[A-Za-z ]+$")
 
@@ -133,6 +143,7 @@ def ensure_post_ids(users):
                 changed = True
             post.setdefault("shared_with", [])
             post.setdefault("likes", [])
+            post.setdefault("reactions", {})
     if changed:
         save_users(users)
 
@@ -171,7 +182,17 @@ def build_feed_posts(users, viewer_username):
                 if not post_is_visible(post, viewer_username, user["username"]):
                     continue
                 media_filename = post.get("media_filename")
-                likes = post.get("likes", [])
+                reactions = dict(post.get("reactions", {}))
+                for username in post.get("likes", []):
+                    reactions.setdefault(username, "like")
+                reaction_counts = {}
+                for reaction_type in reactions.values():
+                    if reaction_type in REACTIONS:
+                        reaction_counts[reaction_type] = reaction_counts.get(reaction_type, 0) + 1
+                reaction_summary = [
+                    {"type": key, "emoji": REACTIONS[key], "count": count}
+                    for key, count in reaction_counts.items()
+                ]
                 posts.append(
                     {
                         "id": post.get("id"),
@@ -187,8 +208,8 @@ def build_feed_posts(users, viewer_username):
                         "media_type": post.get("media_type"),
                         "shared_with": post.get("shared_with", []),
                         "is_owner": user["username"] == viewer_username,
-                        "likes_count": len(likes),
-                        "liked_by_current_user": viewer_username in likes,
+                        "reaction_summary": reaction_summary,
+                        "current_user_reaction": reactions.get(viewer_username),
                     }
                 )
             else:
@@ -379,6 +400,7 @@ def dashboard():
         photo_url=photo_url_for(user["username"]),
         posts=build_feed_posts(users, user["username"]),
         geez_contacts=geez_contacts,
+        reactions=REACTIONS,
     )
 
 
@@ -424,6 +446,7 @@ def create_post():
                 "media_filename": media_filename,
                 "media_type": media_type,
                 "likes": [],
+                "reactions": {},
             }
         )
         save_users(users)
@@ -514,6 +537,35 @@ def like_post(post_id):
     return redirect(url_for("dashboard"))
 
 
+@app.route("/react-post/<post_id>", methods=["POST"])
+def react_post(post_id):
+    user = current_user()
+    if not user:
+        return redirect(url_for("login"))
+
+    reaction = request.form.get("reaction")
+    if reaction not in REACTIONS:
+        return redirect(request.referrer or url_for("dashboard"))
+
+    users = load_users()
+    for author in users.values():
+        for post in author.get("posts", []):
+            if isinstance(post, dict) and post.get("id") == post_id:
+                if not post_is_visible(post, user["username"], author["username"]):
+                    return redirect(url_for("dashboard"))
+
+                reactions = post.setdefault("reactions", {})
+                current = reactions.get(user["username"])
+                if current == reaction:
+                    reactions.pop(user["username"], None)
+                else:
+                    reactions[user["username"]] = reaction
+                save_users(users)
+                return redirect(request.referrer or url_for("dashboard"))
+
+    return redirect(url_for("dashboard"))
+
+
 @app.route("/search")
 def search():
     viewer = current_user()
@@ -569,10 +621,20 @@ def profile():
         if isinstance(post, dict):
             if not post_is_visible(post, viewer["username"], user["username"]):
                 continue
+            reactions = dict(post.get("reactions", {}))
+            for username in post.get("likes", []):
+                reactions.setdefault(username, "like")
+            reaction_counts = {}
+            for reaction_type in reactions.values():
+                if reaction_type in REACTIONS:
+                    reaction_counts[reaction_type] = reaction_counts.get(reaction_type, 0) + 1
             visible_posts.append({
                 **post,
-                "likes_count": len(post.get("likes", [])),
-                "liked_by_current_user": viewer["username"] in post.get("likes", []),
+                "reaction_summary": [
+                    {"type": key, "emoji": REACTIONS[key], "count": count}
+                    for key, count in reaction_counts.items()
+                ],
+                "current_user_reaction": reactions.get(viewer["username"]),
             })
         else:
             visible_posts.append(post)
@@ -599,6 +661,7 @@ def profile():
         photo_permission=user.get("photo_permission", False),
         visible_posts=visible_posts,
         geez_contacts=geez_contacts,
+        reactions=REACTIONS,
     )
 
 

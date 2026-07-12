@@ -129,12 +129,22 @@
                 {% endif %}
             {% endif %}
             <div class="post-stats">
-                <span class="reactions">&#128077; {{ post.likes_count }}</span>
+                <span class="reactions">
+                    {% if post.reaction_summary %}
+                        {% for reaction in post.reaction_summary %}
+                            {{ reaction.emoji }} {{ reaction.count }}
+                        {% endfor %}
+                    {% else %}
+                        No reactions yet
+                    {% endif %}
+                </span>
                 <span class="comments">0 Comments</span>
             </div>
             <div class="post-actions">
-                <form method="POST" action="{{ url_for('like_post', post_id=post.id) }}">
-                    <button type="submit">&#128077; {% if post.liked_by_current_user %}Unlike{% else %}Like{% endif %}</button>
+                <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" class="reaction-buttons">
+                    {% for key, emoji in reactions.items() %}
+                    <button type="submit" name="reaction" value="{{ key }}" class="reaction-button{% if post.current_user_reaction == key %} active{% endif %}">{{ emoji }} {{ key|capitalize }}</button>
+                    {% endfor %}
                 </form>
                 <button>&#128172; Comment</button>
                 <button>&#10150; Share</button>
