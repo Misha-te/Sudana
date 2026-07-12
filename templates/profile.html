@@ -66,12 +66,23 @@
 
             {% if is_owner %}
             <a href="{{ url_for('edit_profile') }}" class="cta form-submit">Edit profile</a>
-            {% elif not is_geez %}
+            {% elif is_geez %}
+            <a href="{{ url_for('my_geez') }}" class="cta form-submit connected-geez">&#10003; G</a>
+            {% elif geez_request_received %}
+            <div class="profile-request-actions">
+                <form method="POST" action="{{ url_for('accept_geez', username=user.username) }}">
+                    <button type="submit" class="cta request-accept">Accept</button>
+                </form>
+                <form method="POST" action="{{ url_for('reject_geez', username=user.username) }}">
+                    <button type="submit" class="request-reject">Reject</button>
+                </form>
+            </div>
+            {% elif geez_request_sent %}
+            <a href="{{ url_for('my_geez') }}" class="cta form-submit pending-geez">Request pending</a>
+            {% else %}
             <form method="POST" action="{{ url_for('add_geez', username=user.username) }}" class="profile-geez-action">
                 <button type="submit" class="cta form-submit">Add G</button>
             </form>
-            {% else %}
-            <a href="{{ url_for('my_geez') }}" class="cta form-submit connected-geez">&#10003; G</a>
             {% endif %}
         </div>
 

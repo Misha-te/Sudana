@@ -21,7 +21,41 @@
             <a href="{{ url_for('search') }}" class="cta">Add G</a>
         </div>
 
+        {% if received_requests %}
+        <section class="geez-request-section">
+            <h2 class="section-title">G requests</h2>
+            {% for person in received_requests %}
+            <div class="result-row geez-request-row">
+                <a class="geez-person-link" href="{{ url_for('profile', name=person.username) }}">
+                    <span class="avatar-sm grad-user"
+                          {% if person.photo_url %}style="background-image: url('{{ person.photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ person.initial }}</span>
+                    <span class="result-info"><strong>{{ person.name }}</strong><span class="result-username">@{{ person.username }}</span></span>
+                </a>
+                <div class="geez-request-buttons">
+                    <form method="POST" action="{{ url_for('accept_geez', username=person.username) }}"><button type="submit" class="request-accept">Accept</button></form>
+                    <form method="POST" action="{{ url_for('reject_geez', username=person.username) }}"><button type="submit" class="request-reject">Reject</button></form>
+                </div>
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        {% if sent_requests %}
+        <section class="geez-request-section">
+            <h2 class="section-title">Pending sent</h2>
+            {% for person in sent_requests %}
+            <a class="result-row" href="{{ url_for('profile', name=person.username) }}">
+                <span class="avatar-sm grad-user"
+                      {% if person.photo_url %}style="background-image: url('{{ person.photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ person.initial }}</span>
+                <span class="result-info"><strong>{{ person.name }}</strong><span class="result-username">@{{ person.username }}</span></span>
+                <span class="pending-label">Pending</span>
+            </a>
+            {% endfor %}
+        </section>
+        {% endif %}
+
         {% if contacts %}
+            <h2 class="section-title geez-list-title">Connections</h2>
             {% for person in contacts %}
             <a class="result-row" href="{{ url_for('profile', name=person.username) }}">
                 <span class="avatar-sm grad-user"
@@ -33,7 +67,7 @@
                 {% if person.category %}<span class="category-badge">{{ person.category }}</span>{% endif %}
             </a>
             {% endfor %}
-        {% else %}
+        {% elif not received_requests and not sent_requests %}
         <section class="profile-card geez-empty">
             <div class="geez-empty-icon">&#129309;</div>
             <h2>No Gs yet</h2>

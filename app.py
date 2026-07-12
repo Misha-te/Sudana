@@ -606,24 +606,45 @@ def my_geez():
         return redirect(url_for("login"))
 
     users = load_users()
+    viewer_username = viewer["username"]
+
+    def person_card(username):
+        person = users.get(username)
+        if not person:
+            return None
+        return {
+            "username": username,
+            "name": f"{person['first_name']} {person['last_name']}",
+            "category": person.get("category", ""),
+            "initial": person["first_name"][0].upper(),
+            "photo_url": photo_url_for(username),
+        }
+
     contacts = []
     for username in viewer.get("geez", []):
-        person = users.get(username)
-        if person:
-            contacts.append(
-                {
-                    "username": username,
-                    "name": f"{person['first_name']} {person['last_name']}",
-                    "category": person.get("category", ""),
-                    "initial": person["first_name"][0].upper(),
-                    "photo_url": photo_url_for(username),
-                }
-            )
+        card = person_card(username)
+        if card:
+            contacts.append(card)
+
+    sent_requests = []
+    for username in viewer.get("pending_sent", []):
+        card = person_card(username)
+        if card:
+            sent_requests.append(card)
+
+    received_requests = []
+    for username, person in users.items():
+        if viewer_username in person.get("pending_sent", []):
+            card = person_card(username)
+            if card:
+                received_requests.append(card)
 
     return render_template(
         "my_geez.html",
         user=viewer,
         contacts=contacts,
+        sent_requests=sent_requests,
+        received_requests=received_requests,
         photo_url=photo_url_for(viewer["username"]),
     )
 
@@ -637,17 +658,52 @@ def add_geez(username):
     users = load_users()
     viewer_username = viewer["username"]
     if username in users and username != viewer_username:
-        # A G connection belongs to both people. setdefault also keeps older
-        # accounts (created before MyGeez existed) compatible.
-        viewer_geez = users[viewer_username].setdefault("geez", [])
-        other_geez = users[username].setdefault("geez", [])
-        if username not in viewer_geez:
-            viewer_geez.append(username)
-        if viewer_username not in other_geez:
-            other_geez.append(viewer_username)
-        save_users(users)
+        viewer_record = users[viewer_username]
+        already_connected = username in viewer_record.setdefault("geez", [])
+        has_incoming_request = viewer_username in users[username].get("pending_sent", [])
+        pending_sent = viewer_record.setdefault("pending_sent", [])
+        if not already_connected and not has_incoming_request and username not in pending_sent:
+            pending_sent.append(username)
+            save_users(users)
 
     return redirect(request.referrer or url_for("my_geez"))
+
+
+@app.route("/accept-geez/<username>", methods=["POST"])
+def accept_geez(username):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    viewer_username = viewer["username"]
+    requester = users.get(username)
+    if requester and viewer_username in requester.get("pending_sent", []):
+        requester["pending_sent"].remove(viewer_username)
+        viewer_geez = users[viewer_username].setdefault("geez", [])
+        requester_geez = requester.setdefault("geez", [])
+        if username not in viewer_geez:
+            viewer_geez.append(username)
+        if viewer_username not in requester_geez:
+            requester_geez.append(viewer_username)
+        save_users(users)
+
+    return redirect(url_for("my_geez"))
+
+
+@app.route("/reject-geez/<username>", methods=["POST"])
+def reject_geez(username):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    requester = users.get(username)
+    if requester and viewer["username"] in requester.get("pending_sent", []):
+        requester["pending_sent"].remove(viewer["username"])
+        save_users(users)
+
+    return redirect(url_for("my_geez"))
 
 
 @app.route("/profile")
@@ -713,6 +769,8 @@ def profile():
         visible_posts=visible_posts,
         geez_contacts=geez_contacts,
         is_geez=user["username"] in viewer.get("geez", []),
+        geez_request_sent=user["username"] in viewer.get("pending_sent", []),
+        geez_request_received=viewer["username"] in user.get("pending_sent", []),
         reactions=REACTIONS,
     )
 
