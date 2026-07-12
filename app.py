@@ -101,7 +101,12 @@ def current_user():
 def inject_notification_count():
     """Make the current notification total available to every page."""
     user = current_user()
-    return {"notification_count": len(user.get("notifications", [])) if user else 0}
+    unread_count = 0
+    if user:
+        unread_count = sum(
+            1 for notice in user.get("notifications", []) if not notice.get("read", False)
+        )
+    return {"notification_count": unread_count}
 
 
 # ---------- Profile photo helpers ----------
@@ -680,6 +685,7 @@ def add_geez(username):
                     "actor_username": viewer_username,
                     "created_at": now.isoformat(),
                     "created_label": now.strftime("%b %d, %Y at %-I:%M %p"),
+                    "read": False,
                 }
             )
             save_users(users)
@@ -722,6 +728,7 @@ def accept_geez(username):
                 "actor_username": viewer_username,
                 "created_at": now.isoformat(),
                 "created_label": now.strftime("%b %d, %Y at %-I:%M %p"),
+                "read": False,
             }
         )
         save_users(users)
@@ -783,6 +790,24 @@ def notifications():
         notices=notices,
         photo_url=photo_url_for(viewer["username"]),
     )
+
+
+@app.route("/notifications/mark-all-read", methods=["POST"])
+def mark_all_notifications_read():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    changed = False
+    for notice in users[viewer["username"]].get("notifications", []):
+        if not notice.get("read", False):
+            notice["read"] = True
+            changed = True
+    if changed:
+        save_users(users)
+
+    return redirect(url_for("notifications"))
 
 
 @app.route("/profile")

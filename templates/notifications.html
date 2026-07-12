@@ -13,10 +13,17 @@
     </header>
 
     <main class="feed">
-        <h1 class="section-title">Notifications</h1>
+        <div class="posts-head">
+            <h1 class="section-title">Notifications</h1>
+            {% if notification_count >= 1 %}
+            <form method="POST" action="{{ url_for('mark_all_notifications_read') }}" class="mark-read-form">
+                <button type="submit" class="mark-read-button">Mark all as read</button>
+            </form>
+            {% endif %}
+        </div>
         {% if notices %}
             {% for notice in notices %}
-            <article class="profile-card notification-card">
+            <article class="profile-card notification-card{% if not notice.read %} unread-notification{% endif %}">
                 <a href="{{ url_for('profile', name=notice.actor_username) }}" class="avatar-sm grad-user"
                    {% if notice.actor_photo_url %}style="background-image: url('{{ notice.actor_photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ notice.actor_initial }}</a>
                 <div class="notification-content">

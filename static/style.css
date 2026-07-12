@@ -534,6 +534,29 @@ body {
     gap: 0.8rem;
 }
 
+.unread-notification {
+    border-left: 4px solid #0f47af;
+}
+
+.mark-read-form {
+    margin: 0;
+}
+
+.mark-read-button {
+    border: 0;
+    background: transparent;
+    color: #0f47af;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.mark-read-button:hover {
+    text-decoration: underline;
+}
+
 .notification-content {
     flex: 1;
     min-width: 0;
