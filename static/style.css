@@ -440,6 +440,32 @@ body {
     margin-bottom: 0.75rem;
 }
 
+.profile-geez-action {
+    margin: 0;
+}
+
+.profile-geez-action .form-submit {
+    width: 100%;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+}
+
+.connected-geez {
+    background: #e7f0ff;
+    color: #0f47af;
+}
+
+.geez-empty {
+    text-align: center;
+    padding: 2.5rem 1.25rem;
+}
+
+.geez-empty-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+}
+
 .category-badge {
     display: inline-block;
     background: #e7f0ff;

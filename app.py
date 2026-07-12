@@ -599,6 +599,57 @@ def search():
     return render_template("search.html", q=query, results=results)
 
 
+@app.route("/my-geez")
+def my_geez():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    contacts = []
+    for username in viewer.get("geez", []):
+        person = users.get(username)
+        if person:
+            contacts.append(
+                {
+                    "username": username,
+                    "name": f"{person['first_name']} {person['last_name']}",
+                    "category": person.get("category", ""),
+                    "initial": person["first_name"][0].upper(),
+                    "photo_url": photo_url_for(username),
+                }
+            )
+
+    return render_template(
+        "my_geez.html",
+        user=viewer,
+        contacts=contacts,
+        photo_url=photo_url_for(viewer["username"]),
+    )
+
+
+@app.route("/add-geez/<username>", methods=["POST"])
+def add_geez(username):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+
+    users = load_users()
+    viewer_username = viewer["username"]
+    if username in users and username != viewer_username:
+        # A G connection belongs to both people. setdefault also keeps older
+        # accounts (created before MyGeez existed) compatible.
+        viewer_geez = users[viewer_username].setdefault("geez", [])
+        other_geez = users[username].setdefault("geez", [])
+        if username not in viewer_geez:
+            viewer_geez.append(username)
+        if viewer_username not in other_geez:
+            other_geez.append(viewer_username)
+        save_users(users)
+
+    return redirect(request.referrer or url_for("my_geez"))
+
+
 @app.route("/profile")
 def profile():
     viewer = current_user()
@@ -661,6 +712,7 @@ def profile():
         photo_permission=user.get("photo_permission", False),
         visible_posts=visible_posts,
         geez_contacts=geez_contacts,
+        is_geez=user["username"] in viewer.get("geez", []),
         reactions=REACTIONS,
     )
 
