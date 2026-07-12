@@ -217,6 +217,7 @@ This approach is suitable for development and learning purposes.
 * Notifications system
 * Improved security
 * Cloud deployment
+* User analytics dashboard for profile views, post/video engagement, and account performance
 
 ---
 
