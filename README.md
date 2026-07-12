@@ -6,6 +6,17 @@ This project is currently in active development and serves as both a learning ex
 
 ---
 
+## 🚀 Live Demo
+
+**Status:** Live & Actively Developed
+
+- **Primary:** https://sudana.onrender.com/
+- **Mirror:** https://sudana-ssd.vercel.app/
+
+Try the platform now! If one link is unavailable, try the other.
+
+---
+
 ## ✨ Features
 
 ### 👤 User Accounts
