@@ -60,8 +60,8 @@
                 <strong>{{ user.gender }}</strong>
             </div>
             <div class="detail-row">
-                <span>Hometown</span>
-                <strong>{{ user.hometown }}</strong>
+                <span>{{ 'Hometown' if user.get('is_south_sudanese', True) else 'Home country' }}</span>
+                <strong>{{ user.hometown if user.get('is_south_sudanese', True) else user.get('home_country', '') }}</strong>
             </div>
 
             {% if is_owner %}
@@ -84,6 +84,7 @@
                 <button type="submit" class="cta form-submit">Add G</button>
             </form>
             {% endif %}
+            {% if not is_owner %}<form method="POST" action="{{ url_for('send_message', username=user.username) }}"><input name="message" placeholder="Send a message" required><button class="cta" type="submit">Send</button></form>{% endif %}
         </div>
 
         <!-- My Posts -->
