@@ -22,37 +22,23 @@
         <section class="updates">
             <h2 class="section-title">My Updates</h2>
             <div class="stories">
-                <div class="story">
+                <button class="story story-button" type="button" onclick="document.getElementById('update-dialog').showModal()">
                     <div class="add-circle">+</div>
                     <span>Add to Update</span>
-                </div>
-                <div class="story">
+                </button>
+                {% for item in updates %}
+                <a class="story" href="{{ url_for('view_update', username=item.username, update_id=item.update_id) }}">
                     <div class="story-ring">
                         <div class="story-avatar grad-user"
-                             {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ username[0]|upper }}</div>
+                             {% if item.photo_url %}style="background-image: url('{{ item.photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ item.initial }}</div>
                     </div>
-                    <span>Your Update</span>
-                </div>
-                <div class="story">
-                    <div class="story-ring">
-                        <div class="story-avatar grad-sunset">A</div>
-                    </div>
-                    <span>Awan's Update</span>
-                </div>
-                <div class="story">
-                    <div class="story-ring">
-                        <div class="story-avatar grad-mountain">M</div>
-                    </div>
-                    <span>Maggie's Update</span>
-                </div>
-                <div class="story">
-                    <div class="story-ring">
-                        <div class="story-avatar grad-group">J</div>
-                    </div>
-                    <span>John's Update</span>
-                </div>
+                    <span>{{ item.name }}</span>
+                </a>
+                {% endfor %}
             </div>
         </section>
+
+        {% for category, message in get_flashed_messages(with_categories=true) %}<div class="inline-error feed-error">{{ message }}</div>{% endfor %}
 
         <!-- Post composer -->
         <form class="composer" method="POST" action="{{ url_for('create_post') }}" enctype="multipart/form-data">
@@ -149,13 +135,13 @@
                         {% endfor %}
                     </div>
                 </form>
-                <button type="button" onclick="this.closest('.post').querySelector('.comment-form').hidden=false">&#128172; Comment</button>
+                <button type="button" onclick="const form=this.closest('.post').querySelector('.comment-form'); form.hidden=!form.hidden; if(!form.hidden) form.querySelector('input').focus()">&#128172; Comment</button>
                 <button>&#10150; Share</button>
             </div>
             {% for comment in post.comments %}<p class="comment"><strong>@{{ comment.username }}</strong> {{ comment.text }}</p>{% endfor %}
             <form class="comment-form" hidden method="POST" action="{{ url_for('comment_post', post_id=post.id) }}">
-                <input name="comment" maxlength="300" placeholder="Write a respectful comment…" required>
-                <button type="submit">Post comment</button>
+                <input name="comment" maxlength="300" aria-label="Comment" required>
+                <button type="submit" class="comment-send" aria-label="Send comment">➤</button>
             </form>
         </article>
             {% endfor %}
@@ -212,6 +198,15 @@
         </article>
         {% endif %}
     </main>
+
+    <dialog id="update-dialog" class="update-dialog">
+        <form method="POST" action="{{ url_for('create_update') }}" enctype="multipart/form-data" class="stack-form">
+            <div class="post-editor-heading"><h2>Add to Update</h2><button type="button" onclick="this.closest('dialog').close()" aria-label="Close">&times;</button></div>
+            <label>Text update<textarea name="text" maxlength="500" placeholder="Share an update…"></textarea></label>
+            <label class="update-upload">Upload image<input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"></label>
+            <button class="primary-button">Share update</button>
+        </form>
+    </dialog>
 
     <dialog class="post-editor-dialog" id="post-editor-dialog" aria-labelledby="post-editor-title">
         <form method="POST" id="post-editor-form">
