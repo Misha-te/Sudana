@@ -3,10 +3,11 @@ import os
 import re
 import sqlite3
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from flask import (
     Flask,
+    flash,
     redirect,
     render_template,
     request,
@@ -28,9 +29,11 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # Post attachments are kept separate from profile photos.
 POST_UPLOAD_FOLDER = os.path.join("static", "uploads", "posts")
+UPDATE_UPLOAD_FOLDER = os.path.join("static", "uploads", "updates")
 POST_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 POST_VIDEO_EXTENSIONS = {"mp4", "webm", "mov"}
 app.config["POST_UPLOAD_FOLDER"] = POST_UPLOAD_FOLDER
+app.config["UPDATE_UPLOAD_FOLDER"] = UPDATE_UPLOAD_FOLDER
 
 # Simple JSON "database" of user accounts, keyed by username
 USERS_FILE = os.path.join("data", "users.json")
@@ -149,17 +152,46 @@ def inject_notification_count():
         )
     message_count = 0
     if user:
-        message_count = sum(1 for message in user.get("messages", []) if not message.get("read"))
+        message_count = len({message.get("sender") for message in user.get("messages", []) if not message.get("read")})
     return {"notification_count": unread_count, "message_count": message_count}
 
 
-BAD_WORDS = {"idiot", "stupid", "moron", "bitch", "fuck", "shit", "asshole", "nigger", "nigga", "kike", "chink", "faggot"}
+BAD_WORDS = {
+    "bitch", "fuck", "fucked", "fucker", "fucking", "motherfucker", "shit", "shitty", "asshole",
+    "nigger", "nigga", "kike", "chink", "faggot", "wetback", "spic",
+}
 
 
 def moderate_text(text):
     pattern = re.compile(r"\b(" + "|".join(re.escape(word) for word in BAD_WORDS) + r")\b", re.I)
     cleaned, count = pattern.subn("[removed]", text)
     return cleaned, count > 0
+
+
+def display_name(user):
+    return user.get("display_name") or " ".join(
+        part for part in (user.get("first_name"), user.get("middle_name"), user.get("last_name")) if part
+    )
+
+
+app.jinja_env.globals["display_name"] = display_name
+
+
+def active_blocked_usernames(user):
+    """Return active blocks while remaining compatible with older string entries."""
+    now = datetime.now()
+    active = []
+    for block in user.get("blocked", []):
+        if isinstance(block, str):
+            active.append(block)
+            continue
+        try:
+            expires = datetime.fromisoformat(block.get("expires_at", ""))
+        except (TypeError, ValueError):
+            continue
+        if expires > now:
+            active.append(block.get("username"))
+    return [username for username in active if username]
 
 
 # ---------- Profile photo helpers ----------
@@ -264,7 +296,7 @@ def build_feed_posts(users, viewer_username):
                         "text": post.get("text", ""),
                         "created_at": post.get("created_at", ""),
                         "created_label": post.get("created_label", "Just now"),
-                        "author_name": f"{user['first_name']} {user['last_name']}",
+                        "author_name": display_name(user),
                         "author_username": user["username"],
                         "author_initial": user["first_name"][0].upper(),
                         "author_photo_url": photo_url_for(user["username"]),
@@ -284,7 +316,7 @@ def build_feed_posts(users, viewer_username):
                         "text": str(post),
                         "created_at": "",
                         "created_label": "Earlier",
-                        "author_name": f"{user['first_name']} {user['last_name']}",
+                        "author_name": display_name(user),
                         "author_username": user["username"],
                         "author_initial": user["first_name"][0].upper(),
                         "author_photo_url": photo_url_for(user["username"]),
@@ -511,10 +543,18 @@ def dashboard():
     users = load_users()
     ensure_post_ids(users)
     geez_contacts = [
-        {"username": name, "name": f"{users[name]['first_name']} {users[name]['last_name']}"}
+        {"username": name, "name": display_name(users[name])}
         for name in user.get("geez", [])
         if name in users
     ]
+    updates = []
+    for name in [user["username"], *user.get("geez", [])]:
+        owner = users.get(name)
+        if not owner or not owner.get("updates"):
+            continue
+        latest = owner["updates"][-1]
+        updates.append({"username": name, "name": "Your Update" if name == user["username"] else f"{owner['first_name']}'s Update",
+                        "initial": owner["first_name"][0].upper(), "photo_url": photo_url_for(name), "update_id": latest["id"]})
     return render_template(
         "dashboard.html",
         username=user["username"],
@@ -522,7 +562,51 @@ def dashboard():
         posts=build_feed_posts(users, user["username"]),
         geez_contacts=geez_contacts,
         reactions=REACTIONS,
+        updates=updates,
     )
+
+
+@app.route("/updates/create", methods=["POST"])
+def create_update():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    text, flagged = moderate_text(request.form.get("text", "").strip())
+    image = request.files.get("image")
+    if flagged:
+        flash("Your update was not posted because it violates Sudana's community guidelines.", "comment-error")
+        return redirect(url_for("dashboard"))
+    filename = None
+    if image and image.filename and "." in image.filename:
+        extension = image.filename.rsplit(".", 1)[1].lower()
+        if extension in POST_IMAGE_EXTENSIONS:
+            os.makedirs(app.config["UPDATE_UPLOAD_FOLDER"], exist_ok=True)
+            filename = f"{uuid.uuid4().hex}.{extension}"
+            image.save(os.path.join(app.config["UPDATE_UPLOAD_FOLDER"], filename))
+    if text or filename:
+        users = load_users()
+        users[viewer["username"]].setdefault("updates", []).append({
+            "id": uuid.uuid4().hex, "text": text, "image_filename": filename,
+            "created_at": datetime.now().isoformat(timespec="seconds")
+        })
+        save_users(users)
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/updates/<username>/<update_id>")
+def view_update(username, update_id):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    owner = users.get(username)
+    if not owner or (username != viewer["username"] and username not in viewer.get("geez", [])):
+        return redirect(url_for("dashboard"))
+    update = next((item for item in owner.get("updates", []) if item.get("id") == update_id), None)
+    if not update:
+        return redirect(url_for("dashboard"))
+    image_url = url_for("static", filename=f"uploads/updates/{update['image_filename']}") if update.get("image_filename") else None
+    return render_template("update_view.html", owner=owner, owner_name=display_name(owner), update=update, image_url=image_url)
 
 
 @app.route("/create-post", methods=["POST"])
@@ -581,6 +665,9 @@ def comment_post(post_id):
     if not viewer:
         return redirect(url_for("login"))
     text, flagged = moderate_text(request.form.get("comment", "").strip())
+    if flagged:
+        flash("Your comment was not posted because it violates Sudana's community guidelines.", "comment-error")
+        return redirect(request.referrer or url_for("dashboard"))
     if text:
         users = load_users()
         for author in users.values():
@@ -588,7 +675,7 @@ def comment_post(post_id):
                 if isinstance(post, dict) and post.get("id") == post_id and post_is_visible(post, viewer["username"], author["username"]):
                     post.setdefault("comments", []).append({
                         "id": uuid.uuid4().hex, "username": viewer["username"], "text": text,
-                        "flagged": flagged, "created_at": datetime.now().isoformat(timespec="seconds")
+                        "flagged": False, "created_at": datetime.now().isoformat(timespec="seconds")
                     })
                     save_users(users)
                     return redirect(request.referrer or url_for("dashboard"))
@@ -720,7 +807,7 @@ def search():
         for user in load_users().values():
             if user["username"] == viewer["username"]:
                 continue  # don't show yourself in results
-            full_name = f"{user['first_name']} {user['last_name']}".lower()
+            full_name = display_name(user).lower()
             if (
                 needle in user["username"].lower()
                 or needle in user["first_name"].lower()
@@ -730,7 +817,7 @@ def search():
                 results.append(
                     {
                         "username": user["username"],
-                        "name": f"{user['first_name']} {user['last_name']}",
+                        "name": display_name(user),
                         "category": user.get("category", ""),
                         "initial": user["first_name"][0].upper(),
                         "photo_url": photo_url_for(user["username"]),
@@ -755,7 +842,7 @@ def my_geez():
             return None
         return {
             "username": username,
-            "name": f"{person['first_name']} {person['last_name']}",
+            "name": display_name(person),
             "category": person.get("category", ""),
             "initial": person["first_name"][0].upper(),
             "photo_url": photo_url_for(username),
@@ -902,7 +989,7 @@ def notifications():
         notices.append(
             {
                 **notice,
-                "actor_name": f"{actor['first_name']} {actor['last_name']}",
+                "actor_name": display_name(actor),
                 "actor_initial": actor["first_name"][0].upper(),
                 "actor_photo_url": photo_url_for(actor["username"]),
                 "is_pending": (
@@ -984,7 +1071,7 @@ def profile():
     geez_contacts = []
     if is_owner:
         geez_contacts = [
-            {"username": name, "name": f"{users[name]['first_name']} {users[name]['last_name']}"}
+            {"username": name, "name": display_name(users[name])}
             for name in viewer.get("geez", [])
             if name in users
         ]
@@ -1109,15 +1196,46 @@ def messages():
         return redirect(url_for("login"))
     tab = request.args.get("tab", "all")
     users = load_users()
-    inbox = list(reversed(viewer.get("messages", [])))
+    conversations = {}
+    for message in viewer.get("messages", []):
+        peer = message.get("sender") if message.get("sender") != viewer["username"] else message.get("recipient")
+        if not peer or peer not in users:
+            continue
+        conversation = conversations.setdefault(peer, {"username": peer, "unread_count": 0,
+                                                         "request": peer not in viewer.get("geez", []), "latest": ""})
+        if message.get("sender") == peer and not message.get("read"):
+            conversation["unread_count"] += 1
+        conversation["latest"] = max(conversation["latest"], message.get("created_at", ""))
+    rows = sorted(conversations.values(), key=lambda item: item["latest"], reverse=True)
     if tab == "unread":
-        inbox = [message for message in inbox if not message.get("read")]
+        rows = [item for item in rows if item["unread_count"]]
     elif tab == "requests":
-        inbox = [message for message in inbox if message.get("request")]
-    for message in inbox:
-        sender = users.get(message.get("sender"), {})
-        message["sender_name"] = f"{sender.get('first_name', '')} {sender.get('last_name', '')}".strip() or message.get("sender")
-    return render_template("messages.html", user=viewer, messages=inbox, tab=tab, users=users)
+        rows = [item for item in rows if item["request"]]
+    return render_template("messages.html", user=viewer, conversations=rows, tab=tab)
+
+
+@app.route("/messages/conversation/<username>")
+def conversation(username):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    peer = users.get(username)
+    if not peer:
+        return redirect(url_for("messages"))
+    record = users[viewer["username"]]
+    thread = []
+    changed = False
+    for message in record.get("messages", []):
+        participants = {message.get("sender"), message.get("recipient")}
+        if participants == {viewer["username"], username}:
+            thread.append(message)
+            if message.get("sender") == username and not message.get("read"):
+                message["read"] = True
+                changed = True
+    if changed:
+        save_users(users)
+    return render_template("conversation.html", user=record, peer=peer, peer_name=display_name(peer), thread=thread)
 
 
 @app.route("/messages/send/<username>", methods=["POST"])
@@ -1129,28 +1247,17 @@ def send_message(username):
     recipient = users.get(username)
     text, flagged = moderate_text(request.form.get("message", "").strip())
     if recipient and text and username != viewer["username"]:
-        if viewer["username"] not in recipient.get("blocked", []) and username not in viewer.get("blocked", []):
-            recipient.setdefault("messages", []).append({
+        if viewer["username"] not in active_blocked_usernames(recipient) and username not in active_blocked_usernames(viewer):
+            message = {
                 "id": uuid.uuid4().hex, "sender": viewer["username"], "recipient": username,
                 "text": text, "flagged": flagged, "created_at": datetime.now().isoformat(timespec="seconds"),
                 "read": False, "request": viewer["username"] not in recipient.get("geez", []),
-            })
+            }
+            recipient.setdefault("messages", []).append(message)
+            sender_copy = dict(message, read=True, request=False)
+            users[viewer["username"]].setdefault("messages", []).append(sender_copy)
             save_users(users)
-    return redirect(url_for("messages"))
-
-
-@app.route("/messages/read/<message_id>", methods=["POST"])
-def read_message(message_id):
-    viewer = current_user()
-    if not viewer:
-        return redirect(url_for("login"))
-    users = load_users()
-    for message in users[viewer["username"]].get("messages", []):
-        if message.get("id") == message_id:
-            message["read"] = True
-            save_users(users)
-            break
-    return redirect(request.referrer or url_for("messages"))
+    return redirect(url_for("conversation", username=username))
 
 
 @app.route("/dating")
@@ -1158,60 +1265,183 @@ def dating():
     viewer = current_user()
     if not viewer:
         return redirect(url_for("login"))
-    people = [user for user in load_users().values() if user["username"] != viewer["username"] and user["username"] not in viewer.get("blocked", [])]
+    people = [user for user in load_users().values() if user["username"] != viewer["username"] and user["username"] not in active_blocked_usernames(viewer)]
     return render_template("dating.html", user=viewer, people=people)
 
 
-@app.route("/settings", methods=["GET", "POST"])
+@app.route("/settings")
 def settings():
     viewer = current_user()
     if not viewer:
         return redirect(url_for("login"))
-    errors, success = [], ""
-    users = load_users()
-    record = users[viewer["username"]]
-    if request.method == "POST":
-        action = request.form.get("action")
-        password = request.form.get("current_password", "")
-        if action in {"name", "password"} and not check_password_hash(record["password_hash"], password):
-            errors.append("Your current password is required and must be correct.")
-        elif action == "name":
-            first, last = request.form.get("first_name", "").strip(), request.form.get("last_name", "").strip()
-            if not first or not last or not NAME_PATTERN.match(first) or not NAME_PATTERN.match(last):
-                errors.append("Names can only contain letters and spaces.")
-            else:
-                record["first_name"], record["last_name"] = first, last
-                record["name_changed_at"] = datetime.now().isoformat(timespec="seconds")
-                success = "Name changed after password approval."
-        elif action == "password":
-            new_password = request.form.get("new_password", "")
-            if len(new_password) < 8:
-                errors.append("The new password must be at least 8 characters.")
-            else:
-                record["password_hash"] = generate_password_hash(new_password)
-                success = "Password changed."
-        elif action == "location":
-            record["hometown"] = request.form.get("hometown", "").strip()
-            record["home_country"] = request.form.get("home_country", "").strip()
-            success = "Location changed."
-        elif action == "block":
-            username = request.form.get("username", "").strip()
-            if username in users and username != viewer["username"]:
-                blocked = record.setdefault("blocked", [])
-                if username not in blocked:
-                    blocked.append(username)
-                success = f"@{username} is blocked."
-            else:
-                errors.append("That user was not found.")
-        elif action == "unblock":
-            username = request.form.get("username", "")
-            if username in record.setdefault("blocked", []):
-                record["blocked"].remove(username)
-                success = f"@{username} is unblocked."
-        if not errors:
+    return render_template("settings.html", user=viewer)
+
+
+@app.route("/settings/name", methods=["GET", "POST"])
+def change_name():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    step = int(request.form.get("step", request.args.get("step", 1)))
+    errors = []
+    if request.method == "POST" and step == 1:
+        first = request.form.get("first_name", "").strip()
+        middle = request.form.get("middle_name", "").strip()
+        last = request.form.get("last_name", "").strip()
+        if not first or not last or any(value and not NAME_PATTERN.match(value) for value in (first, middle, last)):
+            errors.append("First and last names are required, and names may only contain letters and spaces.")
+        else:
+            session["pending_name"] = {"first_name": first, "middle_name": middle, "last_name": last}
+            step = 2
+    elif request.method == "POST" and step == 2:
+        pending = session.get("pending_name")
+        selected = request.form.get("display_name", "")
+        if not pending or selected not in name_suggestions(pending):
+            errors.append("Please select one of the suggested display names.")
+        else:
+            pending["display_name"] = selected
+            session["pending_name"] = pending
+            step = 3
+    elif request.method == "POST" and step == 3:
+        pending = session.get("pending_name")
+        if not pending:
+            return redirect(url_for("change_name"))
+        if not check_password_hash(viewer["password_hash"], request.form.get("current_password", "")):
+            errors.append("The current password is incorrect.")
+        else:
+            users = load_users()
+            users[viewer["username"]].update(pending)
+            users[viewer["username"]]["name_changed_at"] = datetime.now().isoformat(timespec="seconds")
             save_users(users)
-            viewer = record
-    return render_template("settings.html", user=viewer, errors=errors, success=success, users=users)
+            session.pop("pending_name", None)
+            return render_template("settings_result.html", title="Name changed", message="Your new display name has been saved.")
+    pending = session.get("pending_name", {"first_name": viewer["first_name"], "middle_name": viewer.get("middle_name", ""), "last_name": viewer["last_name"]})
+    return render_template("change_name.html", user=viewer, step=step, pending=pending,
+                           suggestions=name_suggestions(pending), errors=errors)
+
+
+def name_suggestions(parts):
+    first, middle, last = parts.get("first_name", ""), parts.get("middle_name", ""), parts.get("last_name", "")
+    suggestions = [f"{first} {last}"]
+    if middle:
+        initial = middle[0].upper()
+        suggestions.extend([f"{first} {initial}. {last}", f"{first} {initial} {last}", f"{first} {middle} {last}"])
+    return list(dict.fromkeys(suggestions))
+
+
+@app.route("/settings/password", methods=["GET", "POST"])
+def change_password():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    step = int(request.form.get("step", request.args.get("step", 1)))
+    errors = []
+    if request.method == "POST" and step == 1:
+        if check_password_hash(viewer["password_hash"], request.form.get("current_password", "")):
+            session["password_change_verified"] = True
+            step = 2
+        else:
+            errors.append("The current password is incorrect.")
+    elif request.method == "POST" and step == 2:
+        if not session.get("password_change_verified"):
+            return redirect(url_for("change_password"))
+        new_password, confirmation = request.form.get("new_password", ""), request.form.get("confirm_password", "")
+        if len(new_password) < 8:
+            errors.append("The new password must be at least 8 characters.")
+        elif new_password != confirmation:
+            errors.append("The new passwords do not match.")
+        else:
+            users = load_users()
+            users[viewer["username"]]["password_hash"] = generate_password_hash(new_password)
+            save_users(users)
+            session.pop("password_change_verified", None)
+            return render_template("settings_result.html", title="Password changed", message="Your password was updated successfully.")
+    return render_template("change_password.html", user=viewer, step=step, errors=errors)
+
+
+@app.route("/settings/location", methods=["GET", "POST"])
+def change_location():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    success = ""
+    if request.method == "POST":
+        users = load_users()
+        record = users[viewer["username"]]
+        if record.get("is_south_sudanese", True):
+            record["hometown"] = request.form.get("hometown", "").strip()
+        else:
+            record["home_country"] = request.form.get("home_country", "").strip()
+        save_users(users)
+        viewer, success = record, "Location saved."
+    return render_template("change_location.html", user=viewer, success=success)
+
+
+@app.route("/settings/blocks", methods=["GET", "POST"])
+def block_people():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    if request.method == "POST":
+        username = request.form.get("username", "")
+        record = users[viewer["username"]]
+        record["blocked"] = [block for block in record.get("blocked", [])
+                             if (block if isinstance(block, str) else block.get("username")) != username]
+        save_users(users)
+        viewer = record
+    blocks = []
+    for entry in viewer.get("blocked", []):
+        username = entry if isinstance(entry, str) else entry.get("username")
+        if username in active_blocked_usernames(viewer):
+            blocks.append({"username": username, "expires_at": entry.get("expires_at") if isinstance(entry, dict) else None})
+    return render_template("block_people.html", user=viewer, blocks=blocks)
+
+
+@app.route("/settings/blocks/search")
+def block_search():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    query = request.args.get("q", "").strip().lower()
+    results = []
+    if query:
+        results = [user for user in load_users().values() if user["username"] != viewer["username"]
+                   and (query in user["username"].lower() or query in display_name(user).lower())]
+    return render_template("block_search.html", user=viewer, results=results, q=query)
+
+
+@app.route("/settings/blocks/<username>", methods=["GET", "POST"])
+def block_duration(username):
+    viewer = current_user()
+    users = load_users()
+    if not viewer:
+        return redirect(url_for("login"))
+    if username not in users or username == viewer["username"]:
+        return redirect(url_for("block_search"))
+    error = ""
+    if request.method == "POST":
+        duration = request.form.get("duration")
+        hours = {"24": 24, "48": 48, "168": 168}.get(duration)
+        if duration == "custom":
+            try:
+                expires = datetime.fromisoformat(request.form.get("custom_until", ""))
+                if expires <= datetime.now():
+                    raise ValueError
+            except ValueError:
+                error = "Choose a custom time in the future."
+        elif hours:
+            expires = datetime.now() + timedelta(hours=hours)
+        else:
+            error = "Choose a block duration."
+        if not error:
+            record = users[viewer["username"]]
+            record["blocked"] = [block for block in record.get("blocked", [])
+                                 if (block if isinstance(block, str) else block.get("username")) != username]
+            record["blocked"].append({"username": username, "expires_at": expires.isoformat(timespec="minutes")})
+            save_users(users)
+            return redirect(url_for("block_people"))
+    return render_template("block_duration.html", user=viewer, person=users[username], error=error)
 
 
 @app.route("/forgot-password", methods=["GET", "POST"])

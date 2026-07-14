@@ -64,6 +64,13 @@ You can log in with a username, email address, or phone number.
   * Private
   * Certain MyGeez
 
+### ⏱️ Updates (Stories)
+
+* Publish text-only Updates
+* Upload an image with an Update
+* Open your latest Update from the dashboard
+* View Updates shared by MyGeez contacts beside your own
+
 ### 🔍 Social Discovery
 
 * Search users by name
@@ -84,12 +91,23 @@ You can log in with a username, email address, or phone number.
 
 ### 💬 Messaging and Safety
 
-* Persistent messages with All, Unread, and Requests inbox tabs
-* Message count badge and profile-to-profile messaging
-* Messages outside MyGeez automatically enter Requests
-* Post comments with server-side slur and profanity filtering
-* User blocking and password-approved account changes
+* Conversation-based All Messages, Unread, and Requests tabs
+* Conversation lists show usernames and per-conversation unread counts without message previews
+* Opening a conversation automatically marks its incoming messages as read and updates badges
+* Messages outside MyGeez remain separated in Requests
+* Full conversation screens show names and message history
+* Expandable comment composer with a compact send button
+* Offensive comments are rejected with a community-guidelines error instead of being published
 * Dating discovery page
+
+### ⚙️ Settings & Privacy
+
+* Clean settings menu with a dedicated screen for each action
+* Three-step name changes: enter names, choose a suggested display name, then approve with the current password
+* Two-step password changes with current-password verification and matching new-password confirmation
+* Location editing shows only Hometown for South Sudanese users and only Home Country for other users
+* Search for users to block and choose a 24-hour, 48-hour, one-week, or custom block duration
+* Review and remove active temporary blocks
 
 ### 🎨 User Experience
 
@@ -126,7 +144,8 @@ Sudana/
 │
 ├── static/
 │   ├── uploads/
-│   └── uploads/posts/
+│   ├── uploads/posts/
+│   └── uploads/updates/
 │
 ├── templates/
 │   ├── index.html
@@ -193,6 +212,10 @@ in your browser.
 * View accepted MyGeez connections
 * Receive MyGeez request and acceptance notifications
 * See a live notification count on the bell
+* Exchange direct messages and automatically track opened conversations
+* Publish moderated comments
+* Share text and image Updates
+* Manage names, passwords, account-aware locations, and temporary blocks from dedicated settings screens
 
 ---
 
@@ -209,6 +232,7 @@ Uploaded files are stored in:
 ```text
 static/uploads/
 static/uploads/posts/
+static/uploads/updates/
 ```
 
 Existing `data/users.json` accounts are imported automatically the first time the database is created. Set `SUDANA_DATABASE` to choose another path. For production, put that path on a persistent disk so accounts, requests, messages, and settings survive deployments.
@@ -228,7 +252,6 @@ Existing `data/users.json` accounts are imported automatically the first time th
 ### Community Features
 
 * MyGeez request cancellation and connection removal
-* Direct messaging
 * Group discussions
 * Community forums
 
@@ -241,7 +264,7 @@ Existing `data/users.json` accounts are imported automatically the first time th
 
 ### Platform Improvements
 
-* SQLite/PostgreSQL integration
+* Optional PostgreSQL deployment support
 * REST API
 * Mobile responsiveness
 * Notifications system
