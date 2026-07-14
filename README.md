@@ -1,6 +1,6 @@
 # 🇸🇸 Sudana
 
-Sudana is a Flask-based social networking platform designed for the South Sudanese community. The goal of the project is to create a digital space where South Sudanese people can connect, share updates, discover opportunities, build relationships, and stay informed about their communities both at home and across the diaspora.
+Sudana is a Flask-based social networking platform designed for the South Sudanese community. It provides a digital space where South Sudanese people can connect, share Updates, communicate privately, discover opportunities, build relationships, and stay informed about their communities at home and across the diaspora.
 
 This project is currently in active development and serves as both a learning experience in full-stack web development and a long-term vision for a community-centered social platform.
 
@@ -8,12 +8,12 @@ This project is currently in active development and serves as both a learning ex
 
 ## 🚀 Live Demo
 
-**Status:** Live & Actively Developed
+**Status:** Live and Actively Developed
 
 - **Primary:** https://sudana.onrender.com/
 - **Mirror:** https://sudana-ssd.vercel.app/
 
-Try the platform now! If one link is unavailable, try the other.
+If one deployment is unavailable, try the other.
 
 ### Trial Accounts
 
@@ -38,10 +38,12 @@ You can log in with a username, email address, or phone number.
 
 ### 👤 User Accounts
 
-* Registration and login with username, email, or phone number
+* Register and log in with a username, email address, or phone number
 * Secure password hashing with Werkzeug
 * Session-based authentication
 * Server-side validation
+* Persistent account and social data
+* Light and dark theme preferences saved across sessions
 
 ### 📝 Profiles
 
@@ -51,6 +53,8 @@ You can log in with a username, email address, or phone number.
 * Hometown selection
 * Home-country display for people who are not South Sudanese
 * Gender and category settings
+* MyGeez connection counts and public profile viewing
+* Dedicated Message button on other users' profiles
 
 ### 📢 Posts & Sharing
 
@@ -110,6 +114,20 @@ You can log in with a username, email address, or phone number.
 * Offensive comments are rejected with a community-guidelines error instead of being published
 * Dating discovery page
 
+#### All Messages
+
+All Messages contains accepted MyGeez conversations and accepted message requests. Conversation rows display only the username and unread count—message contents are not exposed in the list.
+
+#### Unread
+
+Unread contains accepted conversations with incoming messages that have not been opened. Opening a conversation marks its incoming messages as read and updates both the tab and navigation badge automatically.
+
+#### Message Requests
+
+Messages from people outside MyGeez remain in Requests. Recipients can accept a request while preserving its history, or decline it so the sender cannot immediately submit another unwanted request.
+
+Individual messages display Today, Yesterday, or a full date when appropriate, plus the sent time. One gray check means sent, two gray checks mean delivered, and two blue checks mean read. Short-lived typing indicators are maintained through background polling.
+
 ### 😀 Reactions
 
 * Tapping Like opens the complete reaction menu
@@ -124,6 +142,8 @@ You can log in with a username, email address, or phone number.
 * Location editing shows only Hometown for South Sudanese users and only Home Country for other users
 * Search for users to block and choose a 24-hour, 48-hour, one-week, or custom block duration
 * Review and remove active temporary blocks
+
+The name workflow collects required first and last names plus an optional middle name, offers display-name arrangements, and requires the current password before saving. Password changes first verify the current password, then require matching new-password entries. The Forgot Password link remains a placeholder for future recovery support.
 
 ### 🎨 User Experience
 
@@ -194,6 +214,12 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
+On Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
 ### Install Dependencies
 
 ```bash
@@ -261,6 +287,8 @@ Existing `data/users.json` accounts are imported automatically the first time th
 
 Database saves use non-destructive upserts. Accounts missing from one application snapshot are never deleted, and trial-data creation only inserts missing trial accounts; it does not replace existing profiles, MyGs, requests, posts, notifications, messages, comments, reactions, or settings. Accepted MyG relationships are stored on both account records and survive application restarts.
 
+Stored data includes profiles, MyGeez connections and requests, notifications, messages and message requests, posts, comments, reactions, blocks, and account settings. Theme preferences are stored in the browser. Production deployments must place SQLite and uploaded media on persistent storage; ephemeral hosting filesystems can otherwise reset runtime data during deployment.
+
 ---
 
 ## ⚠️ Current Limitations
@@ -268,6 +296,9 @@ Database saves use non-destructive upserts. Accounts missing from one applicatio
 * Typing and message-status updates use two-second polling rather than WebSockets
 * Password reset is not implemented
 * Notifications update when a page is loaded rather than in real time
+* Delivery status represents server/account delivery rather than confirmed physical-device delivery
+* Uploaded files require persistent or cloud storage in production
+* Separate deployments do not automatically share SQLite data
 
 ---
 
@@ -295,6 +326,9 @@ Database saves use non-destructive upserts. Accounts missing from one applicatio
 * Improved security
 * Cloud deployment
 * User analytics dashboard for profile views, post/video engagement, and account performance
+* Managed PostgreSQL and cloud media storage
+* Native mobile application
+* Account recovery, two-factor authentication, and push notifications
 
 ---
 
