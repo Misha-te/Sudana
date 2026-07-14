@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from flask import (
     Flask,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -100,14 +101,12 @@ def load_users():
 
 
 def save_users(users):
+    """Upsert records without deleting database users absent from this snapshot."""
     with database() as connection:
         connection.executemany(
             "INSERT OR REPLACE INTO users(username, data) VALUES (?, ?)",
             [(name, json.dumps(record)) for name, record in users.items()],
         )
-        if users:
-            placeholders = ",".join("?" for _ in users)
-            connection.execute(f"DELETE FROM users WHERE username NOT IN ({placeholders})", tuple(users))
 
 
 def find_user_by_email(email):
@@ -194,6 +193,38 @@ def active_blocked_usernames(user):
     return [username for username in active if username]
 
 
+MESSAGE_STATUS_ORDER = {"sent": 0, "delivered": 1, "read": 2}
+
+
+def message_status(users, message_id, status):
+    """Synchronize a message status across sender and recipient copies."""
+    for record in users.values():
+        for message in record.get("messages", []):
+            if message.get("id") == message_id and MESSAGE_STATUS_ORDER.get(status, 0) > MESSAGE_STATUS_ORDER.get(message.get("status", "sent"), 0):
+                message["status"] = status
+                if status == "read":
+                    message["read"] = True
+
+
+def conversation_is_accepted(user, peer_username):
+    return peer_username in user.get("geez", []) or peer_username in user.get("message_contacts", [])
+
+
+def message_time_parts(value):
+    try:
+        sent_at = datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return {"date_label": "", "time_label": ""}
+    today = date.today()
+    if sent_at.date() == today:
+        label = "Today"
+    elif sent_at.date() == today - timedelta(days=1):
+        label = "Yesterday"
+    else:
+        label = sent_at.strftime("%B %-d, %Y")
+    return {"date_label": label, "time_label": sent_at.strftime("%-I:%M %p")}
+
+
 # ---------- Profile photo helpers ----------
 
 def find_profile_photo(username):
@@ -268,6 +299,17 @@ def linkify(text):
 
 
 app.jinja_env.filters["linkify"] = linkify
+
+
+@app.after_request
+def inject_global_theme(response):
+    """Load the persisted browser theme on every rendered HTML screen."""
+    if response.content_type.startswith("text/html"):
+        html = response.get_data(as_text=True)
+        theme_tag = '<script src="/static/theme.js"></script>'
+        if "theme.js" not in html and "</head>" in html:
+            response.set_data(html.replace("</head>", f"{theme_tag}</head>", 1))
+    return response
 
 
 def build_feed_posts(users, viewer_username):
@@ -673,10 +715,19 @@ def comment_post(post_id):
         for author in users.values():
             for post in author.get("posts", []):
                 if isinstance(post, dict) and post.get("id") == post_id and post_is_visible(post, viewer["username"], author["username"]):
+                    comment_id = uuid.uuid4().hex
                     post.setdefault("comments", []).append({
-                        "id": uuid.uuid4().hex, "username": viewer["username"], "text": text,
+                        "id": comment_id, "username": viewer["username"], "text": text,
                         "flagged": False, "created_at": datetime.now().isoformat(timespec="seconds")
                     })
+                    if author["username"] != viewer["username"]:
+                        now = datetime.now()
+                        author.setdefault("notifications", []).append({
+                            "id": uuid.uuid4().hex, "type": "post_comment",
+                            "actor_username": viewer["username"], "post_id": post_id,
+                            "comment_id": comment_id, "created_at": now.isoformat(timespec="seconds"),
+                            "created_label": now.strftime("%b %d, %Y at %-I:%M %p"), "read": False,
+                        })
                     save_users(users)
                     return redirect(request.referrer or url_for("dashboard"))
     return redirect(request.referrer or url_for("dashboard"))
@@ -1007,6 +1058,37 @@ def notifications():
     )
 
 
+@app.route("/notifications/open/<notice_id>")
+def open_notification(notice_id):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    notice = next((item for item in users[viewer["username"]].get("notifications", [])
+                   if item.get("id") == notice_id), None)
+    if not notice:
+        return redirect(url_for("notifications"))
+    notice["read"] = True
+    save_users(users)
+    if notice.get("type") == "post_comment":
+        return redirect(url_for("dashboard", _anchor=f"comment-{notice.get('comment_id')}"))
+    if notice.get("type") == "geez_request":
+        return redirect(url_for("my_geez", _anchor="received-requests"))
+    return redirect(url_for("profile", name=notice.get("actor_username")))
+
+
+@app.route("/notifications/delete/<notice_id>", methods=["POST"])
+def delete_notification(notice_id):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    record = users[viewer["username"]]
+    record["notifications"] = [notice for notice in record.get("notifications", []) if notice.get("id") != notice_id]
+    save_users(users)
+    return redirect(url_for("notifications"))
+
+
 @app.route("/notifications/mark-all-read", methods=["POST"])
 def mark_all_notifications_read():
     viewer = current_user()
@@ -1196,19 +1278,31 @@ def messages():
         return redirect(url_for("login"))
     tab = request.args.get("tab", "all")
     users = load_users()
+    record = users[viewer["username"]]
+    changed = False
+    for message in record.get("messages", []):
+        if message.get("recipient") == viewer["username"] and message.get("sender") != viewer["username"]:
+            before = message.get("status", "sent")
+            message_status(users, message.get("id"), "delivered")
+            changed = changed or before == "sent"
+    if changed:
+        save_users(users)
+        viewer = users[viewer["username"]]
     conversations = {}
     for message in viewer.get("messages", []):
         peer = message.get("sender") if message.get("sender") != viewer["username"] else message.get("recipient")
         if not peer or peer not in users:
             continue
         conversation = conversations.setdefault(peer, {"username": peer, "unread_count": 0,
-                                                         "request": peer not in viewer.get("geez", []), "latest": ""})
+                                                         "request": not conversation_is_accepted(viewer, peer), "latest": ""})
         if message.get("sender") == peer and not message.get("read"):
             conversation["unread_count"] += 1
         conversation["latest"] = max(conversation["latest"], message.get("created_at", ""))
     rows = sorted(conversations.values(), key=lambda item: item["latest"], reverse=True)
-    if tab == "unread":
-        rows = [item for item in rows if item["unread_count"]]
+    if tab == "all":
+        rows = [item for item in rows if not item["request"]]
+    elif tab == "unread":
+        rows = [item for item in rows if item["unread_count"] and not item["request"]]
     elif tab == "requests":
         rows = [item for item in rows if item["request"]]
     return render_template("messages.html", user=viewer, conversations=rows, tab=tab)
@@ -1232,10 +1326,18 @@ def conversation(username):
             thread.append(message)
             if message.get("sender") == username and not message.get("read"):
                 message["read"] = True
+                message_status(users, message.get("id"), "read")
                 changed = True
     if changed:
         save_users(users)
-    return render_template("conversation.html", user=record, peer=peer, peer_name=display_name(peer), thread=thread)
+    for message in thread:
+        message.update(message_time_parts(message.get("created_at")))
+        message.setdefault("status", "read" if message.get("read") else "delivered")
+    request_mode = not conversation_is_accepted(record, username) and any(
+        message.get("sender") == username for message in thread
+    )
+    return render_template("conversation.html", user=record, peer=peer, peer_name=display_name(peer),
+                           thread=thread, request_mode=request_mode)
 
 
 @app.route("/messages/send/<username>", methods=["POST"])
@@ -1248,16 +1350,94 @@ def send_message(username):
     text, flagged = moderate_text(request.form.get("message", "").strip())
     if recipient and text and username != viewer["username"]:
         if viewer["username"] not in active_blocked_usernames(recipient) and username not in active_blocked_usernames(viewer):
+            if viewer["username"] in recipient.get("declined_message_requests", []) and not conversation_is_accepted(recipient, viewer["username"]):
+                flash("This person is not accepting new message requests from you.", "comment-error")
+                return redirect(url_for("conversation", username=username))
             message = {
                 "id": uuid.uuid4().hex, "sender": viewer["username"], "recipient": username,
                 "text": text, "flagged": flagged, "created_at": datetime.now().isoformat(timespec="seconds"),
-                "read": False, "request": viewer["username"] not in recipient.get("geez", []),
+                "read": False, "request": not conversation_is_accepted(recipient, viewer["username"]), "status": "sent",
             }
             recipient.setdefault("messages", []).append(message)
-            sender_copy = dict(message, read=True, request=False)
+            sender_copy = dict(message, read=True, request=False, status="sent")
             users[viewer["username"]].setdefault("messages", []).append(sender_copy)
             save_users(users)
     return redirect(url_for("conversation", username=username))
+
+
+@app.route("/messages/request/<username>/accept", methods=["POST"])
+def accept_message_request(username):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    if username in users:
+        for left, right in ((viewer["username"], username), (username, viewer["username"])):
+            contacts = users[left].setdefault("message_contacts", [])
+            if right not in contacts:
+                contacts.append(right)
+        users[viewer["username"]].setdefault("declined_message_requests", [])
+        if username in users[viewer["username"]]["declined_message_requests"]:
+            users[viewer["username"]]["declined_message_requests"].remove(username)
+        save_users(users)
+    return redirect(url_for("conversation", username=username))
+
+
+@app.route("/messages/request/<username>/decline", methods=["POST"])
+def decline_message_request(username):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    record = users[viewer["username"]]
+    record["messages"] = [message for message in record.get("messages", [])
+                          if {message.get("sender"), message.get("recipient")} != {viewer["username"], username}]
+    declined = record.setdefault("declined_message_requests", [])
+    if username not in declined:
+        declined.append(username)
+    save_users(users)
+    return redirect(url_for("messages", tab="requests"))
+
+
+@app.route("/messages/typing/<username>", methods=["POST"])
+def set_typing(username):
+    viewer = current_user()
+    if not viewer:
+        return jsonify(ok=False), 401
+    users = load_users()
+    active = bool((request.get_json(silent=True) or {}).get("typing", False))
+    typing = users[viewer["username"]].setdefault("typing", {})
+    if active:
+        typing[username] = (datetime.now() + timedelta(seconds=5)).isoformat(timespec="seconds")
+    else:
+        typing.pop(username, None)
+    save_users(users)
+    return jsonify(ok=True)
+
+
+@app.route("/messages/typing-status/<username>")
+def typing_status(username):
+    viewer = current_user()
+    if not viewer:
+        return jsonify(typing=False), 401
+    peer = load_users().get(username, {})
+    try:
+        active = datetime.fromisoformat(peer.get("typing", {}).get(viewer["username"], "")) > datetime.now()
+    except ValueError:
+        active = False
+    return jsonify(typing=active, name=peer.get("first_name", username))
+
+
+@app.route("/messages/status/<username>")
+def conversation_status(username):
+    viewer = current_user()
+    if not viewer:
+        return jsonify(messages=[]), 401
+    statuses = []
+    for message in viewer.get("messages", []):
+        if {message.get("sender"), message.get("recipient")} == {viewer["username"], username}:
+            statuses.append({"id": message.get("id"), "status": message.get("status", "sent")})
+    return jsonify(messages=statuses)
 
 
 @app.route("/dating")

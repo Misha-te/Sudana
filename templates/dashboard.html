@@ -76,7 +76,7 @@
 
         {% if posts %}
             {% for post in posts %}
-        <article class="post">
+        <article class="post" id="post-{{ post.id }}">
             <header class="post-head">
                 <div class="avatar-sm grad-user"
                      {% if post.author_photo_url %}style="background-image: url('{{ post.author_photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ post.author_initial }}</div>
@@ -128,9 +128,9 @@
             </div>
             <div class="post-actions">
                 <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" class="reaction-picker">
-                    <button type="submit" name="reaction" value="like" class="reaction-main{% if post.current_user_reaction == 'like' %} active{% endif %}">👍 Like</button>
+                    <button type="button" class="reaction-main{% if post.current_user_reaction %} active{% endif %}" onclick="this.closest('.reaction-picker').classList.toggle('open')">{% if post.current_user_reaction %}{{ reactions[post.current_user_reaction] }}{% else %}👍{% endif %} Like</button>
                     <div class="reaction-menu" aria-label="More reactions">
-                        {% for key, emoji in reactions.items() if key != 'like' %}
+                        {% for key, emoji in reactions.items() %}
                         <button type="submit" name="reaction" value="{{ key }}" class="reaction-menu-button{% if post.current_user_reaction == key %} active{% endif %}">{{ emoji }}</button>
                         {% endfor %}
                     </div>
@@ -138,7 +138,7 @@
                 <button type="button" onclick="const form=this.closest('.post').querySelector('.comment-form'); form.hidden=!form.hidden; if(!form.hidden) form.querySelector('input').focus()">&#128172; Comment</button>
                 <button>&#10150; Share</button>
             </div>
-            {% for comment in post.comments %}<p class="comment"><strong>@{{ comment.username }}</strong> {{ comment.text }}</p>{% endfor %}
+            {% for comment in post.comments %}<p class="comment" id="comment-{{ comment.id }}"><strong>@{{ comment.username }}</strong> {{ comment.text }}</p>{% endfor %}
             <form class="comment-form" hidden method="POST" action="{{ url_for('comment_post', post_id=post.id) }}">
                 <input name="comment" maxlength="300" aria-label="Comment" required>
                 <button type="submit" class="comment-send" aria-label="Send comment">➤</button>

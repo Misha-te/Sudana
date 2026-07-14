@@ -28,9 +28,11 @@
                    {% if notice.actor_photo_url %}style="background-image: url('{{ notice.actor_photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ notice.actor_initial }}</a>
                 <div class="notification-content">
                     {% if notice.type == 'geez_request' %}
-                    <p>You received a My G request from <strong>{{ notice.actor_name }}</strong>.</p>
+                    <a class="notification-link" href="{{ url_for('open_notification', notice_id=notice.id) }}"><strong>{{ notice.actor_name }}</strong> sent you a MyG request.</a>
                     {% elif notice.type == 'geez_accepted' %}
-                    <p><strong>{{ notice.actor_name }}</strong> accepted your My G request.</p>
+                    <a class="notification-link" href="{{ url_for('open_notification', notice_id=notice.id) }}"><strong>{{ notice.actor_name }}</strong> accepted your MyG request.</a>
+                    {% elif notice.type == 'post_comment' %}
+                    <a class="notification-link" href="{{ url_for('open_notification', notice_id=notice.id) }}"><strong>{{ notice.actor_name }}</strong> commented on your post.</a>
                     {% endif %}
                     <span class="notification-time">{{ notice.created_label }}</span>
                     {% if notice.type == 'geez_request' and notice.is_pending %}
@@ -43,6 +45,7 @@
                         </form>
                     </div>
                     {% endif %}
+                    <form method="POST" action="{{ url_for('delete_notification', notice_id=notice.id) }}" class="delete-notification-form"><button type="submit">Delete</button></form>
                 </div>
             </article>
             {% endfor %}

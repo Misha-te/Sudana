@@ -89,6 +89,57 @@ body {
 .update-content img { max-width:min(100%,700px); max-height:70vh; object-fit:contain; }
 .update-content p { font-size:clamp(1.5rem,5vw,3rem); text-align:center; max-width:700px; }
 
+/* Complete application theme coverage. */
+.dark body, .dark .app-body, .dark .form-page { background:#071023; color:#e6eef8; }
+.dark .feed, .dark .updates, .dark .update-dialog { background:#071023; color:#e6eef8; }
+.dark .profile-card, .dark .post, .dark .composer, .dark .form-card, .dark .account-menu,
+.dark .message-composer, .dark .notification-card, .dark .post-editor-dialog,
+.dark .permission-box, .dark .message-request-actions { background:#0b1724; color:#e6eef8; border-color:#263548; }
+.dark .topbar, .dark .navbar, .dark .bottom-nav { background:#071428; color:#f8fafc; border-color:#263548; }
+.dark .hamburger, .dark .hamburger:hover, .dark .hamburger:active, .dark .back-link,
+.dark .round-icon, .dark .brand, .dark .logout-top { color:#f8fafc; }
+.dark .hamburger { background:transparent; outline-color:#93c5fd; }
+.dark .settings-list, .dark .settings-list a, .dark .conversation-row, .dark .search-person,
+.dark .blocked-row, .dark .post-stats, .dark .comment { border-color:#263548; color:#e6eef8; }
+.dark .settings-list a:hover, .dark .post-actions button:hover, .dark .account-menu-item:hover { background:#122235; }
+.dark .settings-list small, .dark .muted, .dark .notification-time, .dark .post-meta span,
+.dark .post-stats, .dark .conversation-title small, .dark .blocked-row small,
+.dark .search-person small, .dark .message-date-label, .dark .message-meta { color:#aebed1; }
+.dark input, .dark textarea, .dark select, .dark option { background:#0f1d2d; color:#f8fafc; border-color:#3b4d63; }
+.dark input::placeholder, .dark textarea::placeholder { color:#91a2b7; opacity:1; }
+.dark label, .dark h1, .dark h2, .dark h3, .dark strong, .dark .profile-name,
+.dark .profile-username, .dark .post-text, .dark .notification-link { color:#f1f5f9; }
+.dark a { color:#93c5fd; }
+.dark .message-tabs a { background:#14243a; color:#cbd5e1; }
+.dark .message-tabs a.active { background:#2563a9; color:white; }
+.dark .bubble.theirs, .dark .comment { background:#16263a; color:#f1f5f9; }
+.dark .bubble.mine { background:#1459a6; color:white; }
+.dark .reaction-menu, .dark .reaction-main, .dark .reaction-menu-button { background:#132338; color:#f1f5f9; border-color:#3b4d63; }
+.dark .reaction-main.active, .dark .reaction-menu-button.active { background:#174d78; color:#dbeafe; }
+.dark .request-reject { background:#263548; color:#f1f5f9; }
+.dark .inline-error { background:#3b1418; color:#fecaca; border-color:#7f1d1d; }
+.dark .success { color:#86efac; }
+.dark .account-menu-overlay, .dark dialog::backdrop { background:rgba(0,0,0,.72); }
+.dark .bottom-nav a { color:#b9c7d8; }
+.dark .bottom-nav a.active { color:#60a5fa; }
+.dark .notification-badge { border-color:#071428; }
+
+.notification-link { color:inherit; text-decoration:none; display:block; }
+.notification-link:hover { text-decoration:underline; }
+.delete-notification-form { margin-top:.55rem; }
+.delete-notification-form button { border:0; background:transparent; color:#64748b; cursor:pointer; padding:0; }
+.profile-message-button { display:inline-block; margin-top:.8rem; }
+.message-request-actions { display:flex; justify-content:space-between; align-items:center; gap:1rem; background:white; padding:1rem; border-radius:14px; margin-bottom:.75rem; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+.message-request-actions > div { display:flex; gap:.5rem; }
+.message-request-actions form { margin:0; }
+.message-request-actions button { border:0; border-radius:9px; padding:.65rem .9rem; font-weight:700; cursor:pointer; }
+.message-date-label { align-self:center; color:#64748b; font-size:.78rem; padding:.25rem .65rem; }
+.message-meta { display:flex; justify-content:flex-end; align-items:center; gap:.35rem; margin-top:.25rem; font-size:.7rem; color:#64748b; }
+.bubble.mine .message-meta { color:#dbeafe; }
+.message-status { letter-spacing:-.18em; padding-right:.18em; color:#94a3b8; font-weight:900; }
+.message-status.read { color:#38bdf8; }
+.typing-indicator { align-self:flex-start; color:#64748b; font-size:.85rem; font-style:italic; padding:.4rem .7rem; }
+
 /* Dark mode overrides (simple) */
 .dark body {
     background: #071023;

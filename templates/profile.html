@@ -85,7 +85,7 @@
                 <button type="submit" class="cta form-submit">Add G</button>
             </form>
             {% endif %}
-            {% if not is_owner %}<form method="POST" action="{{ url_for('send_message', username=user.username) }}"><input name="message" placeholder="Send a message" required><button class="cta" type="submit">Send</button></form>{% endif %}
+            {% if not is_owner %}<a class="cta profile-message-button" href="{{ url_for('conversation', username=user.username) }}">Message</a>{% endif %}
         </div>
 
         <!-- My Posts -->
@@ -147,9 +147,9 @@
                         </div>
                         <div class="post-actions">
                             <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" class="reaction-picker">
-                                <button type="submit" name="reaction" value="like" class="reaction-main{% if post.current_user_reaction == 'like' %} active{% endif %}">👍 Like</button>
+                                <button type="button" class="reaction-main{% if post.current_user_reaction %} active{% endif %}" onclick="this.closest('.reaction-picker').classList.toggle('open')">{% if post.current_user_reaction %}{{ reactions[post.current_user_reaction] }}{% else %}👍{% endif %} Like</button>
                                 <div class="reaction-menu" aria-label="More reactions">
-                                    {% for key, emoji in reactions.items() if key != 'like' %}
+                                    {% for key, emoji in reactions.items() %}
                                     <button type="submit" name="reaction" value="{{ key }}" class="reaction-menu-button{% if post.current_user_reaction == key %} active{% endif %}">{{ emoji }}</button>
                                     {% endfor %}
                                 </div>

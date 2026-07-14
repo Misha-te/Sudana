@@ -83,22 +83,38 @@ You can log in with a username, email address, or phone number.
 
 ### 🔔 Notifications
 
-* Receive timestamped notifications for new MyGeez requests
+* Receive persistent, timestamped notifications for new MyGeez requests
+* Open a MyG notification directly into the relevant request
 * Accept or reject requests directly from notifications
 * Notify the sender when a request is accepted
 * Keep rejected requests private without notifying the sender
 * Display the current notification count on the navigation bell
+* Receive clickable notifications when another user comments on a post
+* Open comment notifications at the relevant comment
+* Delete individual notifications without deleting their related post or comment
 
 ### 💬 Messaging and Safety
 
 * Conversation-based All Messages, Unread, and Requests tabs
 * Conversation lists show usernames and per-conversation unread counts without message previews
 * Opening a conversation automatically marks its incoming messages as read and updates badges
-* Messages outside MyGeez remain separated in Requests
+* All Messages and Unread contain accepted MyGs and accepted message conversations only
+* Messages outside MyGeez remain separated in Requests until accepted
+* Accept a request without losing its original messages, or decline it to prevent immediate repeat requests
 * Full conversation screens show names and message history
+* Message bubbles display Today, Yesterday, or a full date plus the sent time
+* One gray check represents sent, two gray checks represent delivered, and two blue checks represent read
+* Short-lived typing indicators update through background polling and automatically expire
+* Other profiles use a Message button that opens the dedicated conversation screen
 * Expandable comment composer with a compact send button
 * Offensive comments are rejected with a community-guidelines error instead of being published
 * Dating discovery page
+
+### 😀 Reactions
+
+* Tapping Like opens the complete reaction menu
+* A selected reaction is stored in SQLite and remains selected after refresh or login
+* Selecting another reaction replaces the user's previous reaction instead of adding a duplicate
 
 ### ⚙️ Settings & Privacy
 
@@ -114,6 +130,9 @@ You can log in with a username, email address, or phone number.
 * South Sudan-inspired color scheme
 * Responsive navigation
 * Account management menu
+* Complete light and dark themes across pages, cards, conversations, forms, menus, and dialogs
+* Readable dark-theme text, inputs, icons, tabs, reactions, notifications, and navigation
+* Theme changes apply immediately and persist in browser storage across sessions
 * Foundation for future premium features
 
 ---
@@ -213,7 +232,10 @@ in your browser.
 * Receive MyGeez request and acceptance notifications
 * See a live notification count on the bell
 * Exchange direct messages and automatically track opened conversations
+* Accept and decline message requests
+* View message timestamps, delivery/read checks, and typing indicators
 * Publish moderated comments
+* Receive persistent request and comment notifications
 * Share text and image Updates
 * Manage names, passwords, account-aware locations, and temporary blocks from dedicated settings screens
 
@@ -237,11 +259,13 @@ static/uploads/updates/
 
 Existing `data/users.json` accounts are imported automatically the first time the database is created. Set `SUDANA_DATABASE` to choose another path. For production, put that path on a persistent disk so accounts, requests, messages, and settings survive deployments.
 
+Database saves use non-destructive upserts. Accounts missing from one application snapshot are never deleted, and trial-data creation only inserts missing trial accounts; it does not replace existing profiles, MyGs, requests, posts, notifications, messages, comments, reactions, or settings. Accepted MyG relationships are stored on both account records and survive application restarts.
+
 ---
 
 ## ⚠️ Current Limitations
 
-* Messaging refreshes on page load rather than using WebSockets
+* Typing and message-status updates use two-second polling rather than WebSockets
 * Password reset is not implemented
 * Notifications update when a page is loaded rather than in real time
 
