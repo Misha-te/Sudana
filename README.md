@@ -24,8 +24,13 @@ Want to test the app without creating an account? Use one of these:
 | `demo` | `demo@sudana.test` | `demo123456` |
 | `test` | `test@sudana.test` | `test123456` |
 | `visitor` | `visitor@sudana.test` | `visitor123456` |
+| `trial_amina` | `trial_amina@sudana.test` | `Trial123!` |
+| `trial_bol` | `trial_bol@sudana.test` | `Trial123!` |
+| `trial_nyandeng` | `trial_nyandeng@sudana.test` | `Trial123!` |
+| `trial_david` | `trial_david@sudana.test` | `Trial123!` |
+| `trial_achol` | `trial_achol@sudana.test` | `Trial123!` |
 
-You can log in with either the username or email address.
+You can log in with a username, email address, or phone number.
 
 ---
 
@@ -33,7 +38,7 @@ You can log in with either the username or email address.
 
 ### 👤 User Accounts
 
-* User registration and login
+* Registration and login with username, email, or phone number
 * Secure password hashing with Werkzeug
 * Session-based authentication
 * Server-side validation
@@ -44,6 +49,7 @@ You can log in with either the username or email address.
 * Bio and personal details
 * Profile photo uploads
 * Hometown selection
+* Home-country display for people who are not South Sudanese
 * Gender and category settings
 
 ### 📢 Posts & Sharing
@@ -76,6 +82,15 @@ You can log in with either the username or email address.
 * Keep rejected requests private without notifying the sender
 * Display the current notification count on the navigation bell
 
+### 💬 Messaging and Safety
+
+* Persistent messages with All, Unread, and Requests inbox tabs
+* Message count badge and profile-to-profile messaging
+* Messages outside MyGeez automatically enter Requests
+* Post comments with server-side slur and profanity filtering
+* User blocking and password-approved account changes
+* Dating discovery page
+
 ### 🎨 User Experience
 
 * South Sudan-inspired color scheme
@@ -94,7 +109,7 @@ You can log in with either the username or email address.
 | HTML/CSS   | Frontend                          |
 | Jinja2     | Template rendering                |
 | Werkzeug   | Authentication & password hashing |
-| JSON       | Data storage                      |
+| SQLite     | Persistent database               |
 | JavaScript | Interactive UI components         |
 
 ---
@@ -106,7 +121,8 @@ Sudana/
 │
 ├── app.py
 ├── data/
-│   └── users.json
+│   ├── sudana.db
+│   └── users.json  # one-time legacy import
 │
 ├── static/
 │   ├── uploads/
@@ -182,10 +198,10 @@ in your browser.
 
 ## 🔒 Data Storage
 
-Current version stores data locally using JSON files:
+Sudana stores account and social data in SQLite:
 
 ```text
-data/users.json
+data/sudana.db
 ```
 
 Uploaded files are stored in:
@@ -195,14 +211,13 @@ static/uploads/
 static/uploads/posts/
 ```
 
-This approach is suitable for development and learning purposes.
+Existing `data/users.json` accounts are imported automatically the first time the database is created. Set `SUDANA_DATABASE` to choose another path. For production, put that path on a persistent disk so accounts, requests, messages, and settings survive deployments.
 
 ---
 
 ## ⚠️ Current Limitations
 
-* Uses JSON instead of a production database
-* No real-time messaging yet
+* Messaging refreshes on page load rather than using WebSockets
 * Password reset is not implemented
 * Notifications update when a page is loaded rather than in real time
 
