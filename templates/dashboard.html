@@ -13,7 +13,7 @@
         <div class="brand">sudana</div>
         <div class="topbar-actions">
             <a href="{{ url_for('search') }}" class="round-icon" title="Search">&#128269;</a>
-            <a href="#" class="round-icon" title="Messages">&#128172;</a>
+            <a href="{{ url_for('messages') }}" class="round-icon notification-bell" title="Messages">&#128172;{% if message_count %}<span class="notification-badge">{{ message_count }}</span>{% endif %}</a>
         </div>
     </header>
 
@@ -138,7 +138,7 @@
                         No reactions yet
                     {% endif %}
                 </span>
-                <span class="comments">0 Comments</span>
+                <span class="comments">{{ post.comments|length }} Comments</span>
             </div>
             <div class="post-actions">
                 <form method="POST" action="{{ url_for('react_post', post_id=post.id) }}" class="reaction-picker">
@@ -149,9 +149,14 @@
                         {% endfor %}
                     </div>
                 </form>
-                <button>&#128172; Comment</button>
+                <button type="button" onclick="this.closest('.post').querySelector('.comment-form').hidden=false">&#128172; Comment</button>
                 <button>&#10150; Share</button>
             </div>
+            {% for comment in post.comments %}<p class="comment"><strong>@{{ comment.username }}</strong> {{ comment.text }}</p>{% endfor %}
+            <form class="comment-form" hidden method="POST" action="{{ url_for('comment_post', post_id=post.id) }}">
+                <input name="comment" maxlength="300" placeholder="Write a respectful comment…" required>
+                <button type="submit">Post comment</button>
+            </form>
         </article>
             {% endfor %}
         {% else %}
@@ -245,7 +250,7 @@
                 <button class="menu-close" type="button" aria-label="Close account menu">&times;</button>
             </div>
             <div class="account-menu-items">
-                <button type="button" class="account-menu-item placeholder-item">&#9881;&#65039; <span>Settings &amp; Privacy</span><small>Coming soon</small></button>
+                <a href="{{ url_for('settings') }}" class="account-menu-item">&#9881;&#65039; <span>Settings &amp; Privacy</span></a>
                 <button type="button" class="account-menu-item placeholder-item">&#128172; <span>Support from our team</span><small>Coming soon</small></button>
                 <button type="button" id="dark-mode-toggle" class="account-menu-item">&#9790; <span id="dark-mode-label">Dark mode</span><small id="dark-mode-status"></small></button>
                 <button type="button" class="account-menu-item placeholder-item">&#10024; <span>Premium modes</span><small>Coming soon</small></button>
@@ -264,7 +269,7 @@
             <span class="nav-ico">&#129309;</span>
             <span>MyGeez</span>
         </a>
-        <a href="#">
+        <a href="{{ url_for('dating') }}">
             <span class="nav-ico">&#10084;&#65039;</span>
             <span>Dating</span>
         </a>

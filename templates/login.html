@@ -28,9 +28,9 @@
             {% endif %}
 
             <form method="POST" action="{{ url_for('login') }}">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email"
-                       value="{{ email or '' }}" placeholder="you@example.com" required>
+                <label for="email">Username, email, or phone</label>
+                <input type="text" id="email" name="email"
+                       value="{{ email or '' }}" placeholder="@username, email, or phone" required>
 
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password"
