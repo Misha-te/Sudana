@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import sqlite3
 import uuid
 from datetime import date, datetime
 
@@ -18,7 +19,7 @@ from markupsafe import Markup, escape
 
 app = Flask(__name__)
 # Needed to keep users logged in. For a real deployment use a random secret.
-app.secret_key = "sudana-dev-secret-key"
+app.secret_key = os.environ.get("SECRET_KEY", "sudana-dev-secret-key")
 
 # Where uploaded profile pictures are stored, and which file types we allow
 UPLOAD_FOLDER = os.path.join("static", "uploads")
@@ -33,6 +34,7 @@ app.config["POST_UPLOAD_FOLDER"] = POST_UPLOAD_FOLDER
 
 # Simple JSON "database" of user accounts, keyed by username
 USERS_FILE = os.path.join("data", "users.json")
+DATABASE_FILE = os.environ.get("SUDANA_DATABASE", os.path.join("data", "sudana.db"))
 
 # Maximum number of words allowed in a bio
 BIO_WORD_LIMIT = 105
@@ -68,23 +70,62 @@ NAME_PATTERN = re.compile(r"^[A-Za-z ]+$")
 
 # ---------- User "database" helpers ----------
 
+def database():
+    os.makedirs(os.path.dirname(DATABASE_FILE) or ".", exist_ok=True)
+    connection = sqlite3.connect(DATABASE_FILE, timeout=10)
+    connection.execute("PRAGMA journal_mode=WAL")
+    connection.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, data TEXT NOT NULL)")
+    return connection
+
+
 def load_users():
-    try:
-        with open(USERS_FILE) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+    """Load user records from SQLite, importing the legacy JSON file once."""
+    with database() as connection:
+        rows = connection.execute("SELECT username, data FROM users").fetchall()
+        if not rows and os.path.exists(USERS_FILE):
+            try:
+                with open(USERS_FILE) as source:
+                    legacy = json.load(source)
+                connection.executemany(
+                    "INSERT OR REPLACE INTO users(username, data) VALUES (?, ?)",
+                    [(name, json.dumps(record)) for name, record in legacy.items()],
+                )
+                rows = connection.execute("SELECT username, data FROM users").fetchall()
+            except (OSError, json.JSONDecodeError):
+                pass
+    return {username: json.loads(data) for username, data in rows}
 
 
 def save_users(users):
-    os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
-    with open(USERS_FILE, "w") as f:
-        json.dump(users, f, indent=2)
+    with database() as connection:
+        connection.executemany(
+            "INSERT OR REPLACE INTO users(username, data) VALUES (?, ?)",
+            [(name, json.dumps(record)) for name, record in users.items()],
+        )
+        if users:
+            placeholders = ",".join("?" for _ in users)
+            connection.execute(f"DELETE FROM users WHERE username NOT IN ({placeholders})", tuple(users))
 
 
 def find_user_by_email(email):
     for user in load_users().values():
         if user["email"].lower() == email.lower():
+            return user
+    return None
+
+
+def normalize_phone(phone):
+    value = re.sub(r"[^\d+]", "", phone or "")
+    return value if re.fullmatch(r"\+?\d{7,15}", value) else ""
+
+
+def find_user_by_login(identifier):
+    needle = identifier.strip().lower()
+    phone = normalize_phone(identifier)
+    for user in load_users().values():
+        if (user.get("email") or "").lower() == needle or user["username"].lower() == needle:
+            return user
+        if phone and user.get("phone") == phone:
             return user
     return None
 
@@ -106,7 +147,19 @@ def inject_notification_count():
         unread_count = sum(
             1 for notice in user.get("notifications", []) if not notice.get("read", False)
         )
-    return {"notification_count": unread_count}
+    message_count = 0
+    if user:
+        message_count = sum(1 for message in user.get("messages", []) if not message.get("read"))
+    return {"notification_count": unread_count, "message_count": message_count}
+
+
+BAD_WORDS = {"idiot", "stupid", "moron", "bitch", "fuck", "shit", "asshole", "nigger", "nigga", "kike", "chink", "faggot"}
+
+
+def moderate_text(text):
+    pattern = re.compile(r"\b(" + "|".join(re.escape(word) for word in BAD_WORDS) + r")\b", re.I)
+    cleaned, count = pattern.subn("[removed]", text)
+    return cleaned, count > 0
 
 
 # ---------- Profile photo helpers ----------
@@ -222,6 +275,7 @@ def build_feed_posts(users, viewer_username):
                         "is_owner": user["username"] == viewer_username,
                         "reaction_summary": reaction_summary,
                         "current_user_reaction": reactions.get(viewer_username),
+                        "comments": post.get("comments", []),
                     }
                 )
             else:
@@ -246,6 +300,51 @@ def build_feed_posts(users, viewer_username):
     return sorted(posts, key=lambda post: post["created_at"], reverse=True)
 
 
+def seed_trial_accounts():
+    """Create repeatable trial accounts and their sample requests/messages."""
+    users = load_users()
+    target = "Misha_Awan" if "Misha_Awan" in users else next((u for u in users if not u.startswith("trial")), None)
+    profiles = [
+        ("trial_amina", "Amina", "Deng", "Kenya"),
+        ("trial_bol", "Bol", "Ajak", ""),
+        ("trial_nyandeng", "Nyandeng", "Majok", "Uganda"),
+        ("trial_david", "David", "Lado", "United States"),
+        ("trial_achol", "Achol", "Garang", ""),
+    ]
+    changed = False
+    for index, (username, first, last, country) in enumerate(profiles, 1):
+        if username not in users:
+            users[username] = {
+                "first_name": first, "last_name": last, "username": username,
+                "email": f"{username}@sudana.test", "phone": f"+2119200000{index}",
+                "password_hash": generate_password_hash("Trial123!"), "gender": "Other",
+                "dob": "1998-01-01", "hometown": "" if country else "Juba",
+                "home_country": country, "is_south_sudanese": not bool(country),
+                "bio": "Trial community account", "category": "Student", "geez": [],
+                "pending_sent": [target] if target else [], "notifications": [], "messages": [],
+                "blocked": [], "posts": [], "photo_permission": False,
+            }
+            changed = True
+        if target and target in users:
+            message_id = f"trial-message-{index}"
+            inbox = users[target].setdefault("messages", [])
+            if not any(message.get("id") == message_id for message in inbox):
+                inbox.append({"id": message_id, "sender": username, "recipient": target,
+                              "text": f"Hi! I’m {first}. I’d like to connect with you on Sudana.",
+                              "created_at": datetime.now().isoformat(timespec="seconds"),
+                              "read": False, "request": True})
+                changed = True
+            notices = users[target].setdefault("notifications", [])
+            notice_id = f"trial-request-{index}"
+            if not any(notice.get("id") == notice_id for notice in notices):
+                notices.append({"id": notice_id, "type": "geez_request", "actor_username": username,
+                                "created_at": datetime.now().isoformat(timespec="seconds"),
+                                "created_label": datetime.now().strftime("%b %d, %Y at %-I:%M %p"), "read": False})
+                changed = True
+    if changed:
+        save_users(users)
+
+
 # ---------- Routes ----------
 
 @app.route("/")
@@ -261,6 +360,7 @@ def signup():
         last_name = request.form.get("last_name", "").strip()
         username = request.form.get("username", "").strip()
         email = request.form.get("email", "").strip()
+        phone = normalize_phone(request.form.get("phone", ""))
         password = request.form.get("password", "")
         gender = request.form.get("gender", "")
         hometown = request.form.get("hometown", "").strip()
@@ -288,10 +388,12 @@ def signup():
         elif username in users:
             errors.append("That username is already taken.")
 
-        if not email:
-            errors.append("Please enter your email.")
-        elif find_user_by_email(email):
+        if not email and not phone:
+            errors.append("Please enter an email address or phone number.")
+        elif email and find_user_by_email(email):
             errors.append("An account with that email already exists.")
+        if phone and any(item.get("phone") == phone for item in users.values()):
+            errors.append("An account with that phone number already exists.")
 
         if len(password) < 8:
             errors.append("Password must be at least 8 characters.")
@@ -330,6 +432,7 @@ def signup():
                 last_name=last_name,
                 username=username,
                 email=email,
+                phone=request.form.get("phone", "").strip(),
                 gender=gender,
                 hometown=hometown,
                 country=country,
@@ -343,15 +446,20 @@ def signup():
             "last_name": last_name,
             "username": username,
             "email": email,
+            "phone": phone,
             "password_hash": generate_password_hash(password),
             "gender": gender,
             "dob": dob,
-            "hometown": country if not_south_sudanese else hometown,
+            "hometown": hometown if not_south_sudanese is False else "",
+            "home_country": country if not_south_sudanese else "",
+            "is_south_sudanese": not not_south_sudanese,
             "bio": "",
             "category": "",
             "geez": [],          # accepted MyGeez connections (usernames)
             "pending_sent": [],  # MyGeez requests you've sent, still pending
             "notifications": [], # MyGeez requests and acceptance updates
+            "messages": [],
+            "blocked": [],
             "posts": [],
             "photo_permission": False,
         }
@@ -378,11 +486,11 @@ def login():
             errors.append("Please enter your password.")
 
         if not errors:
-            user = find_user_by_email(email)
+            user = find_user_by_login(email)
             if user and check_password_hash(user["password_hash"], password):
                 session["username"] = user["username"]
                 return redirect(url_for("dashboard"))
-            errors.append("Incorrect email or password.")
+            errors.append("Incorrect username, email, phone number, or password.")
 
         return render_template("login.html", errors=errors, email=email)
 
@@ -423,7 +531,7 @@ def create_post():
     if not user:
         return redirect(url_for("login"))
 
-    text = request.form.get("post_text", "").strip()
+    text, _ = moderate_text(request.form.get("post_text", "").strip())
     media = request.files.get("media")
     visibility = request.form.get("visibility", "public")
     if visibility not in {"public", "private", "geez"}:
@@ -465,6 +573,26 @@ def create_post():
         save_users(users)
 
     return redirect(url_for("dashboard"))
+
+
+@app.route("/comment-post/<post_id>", methods=["POST"])
+def comment_post(post_id):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    text, flagged = moderate_text(request.form.get("comment", "").strip())
+    if text:
+        users = load_users()
+        for author in users.values():
+            for post in author.get("posts", []):
+                if isinstance(post, dict) and post.get("id") == post_id and post_is_visible(post, viewer["username"], author["username"]):
+                    post.setdefault("comments", []).append({
+                        "id": uuid.uuid4().hex, "username": viewer["username"], "text": text,
+                        "flagged": flagged, "created_at": datetime.now().isoformat(timespec="seconds")
+                    })
+                    save_users(users)
+                    return redirect(request.referrer or url_for("dashboard"))
+    return redirect(request.referrer or url_for("dashboard"))
 
 
 @app.route("/delete-post/<post_id>", methods=["POST"])
@@ -974,6 +1102,118 @@ def upload_photo():
     return redirect(url_for("profile"))
 
 
+@app.route("/messages")
+def messages():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    tab = request.args.get("tab", "all")
+    users = load_users()
+    inbox = list(reversed(viewer.get("messages", [])))
+    if tab == "unread":
+        inbox = [message for message in inbox if not message.get("read")]
+    elif tab == "requests":
+        inbox = [message for message in inbox if message.get("request")]
+    for message in inbox:
+        sender = users.get(message.get("sender"), {})
+        message["sender_name"] = f"{sender.get('first_name', '')} {sender.get('last_name', '')}".strip() or message.get("sender")
+    return render_template("messages.html", user=viewer, messages=inbox, tab=tab, users=users)
+
+
+@app.route("/messages/send/<username>", methods=["POST"])
+def send_message(username):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    recipient = users.get(username)
+    text, flagged = moderate_text(request.form.get("message", "").strip())
+    if recipient and text and username != viewer["username"]:
+        if viewer["username"] not in recipient.get("blocked", []) and username not in viewer.get("blocked", []):
+            recipient.setdefault("messages", []).append({
+                "id": uuid.uuid4().hex, "sender": viewer["username"], "recipient": username,
+                "text": text, "flagged": flagged, "created_at": datetime.now().isoformat(timespec="seconds"),
+                "read": False, "request": viewer["username"] not in recipient.get("geez", []),
+            })
+            save_users(users)
+    return redirect(url_for("messages"))
+
+
+@app.route("/messages/read/<message_id>", methods=["POST"])
+def read_message(message_id):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    for message in users[viewer["username"]].get("messages", []):
+        if message.get("id") == message_id:
+            message["read"] = True
+            save_users(users)
+            break
+    return redirect(request.referrer or url_for("messages"))
+
+
+@app.route("/dating")
+def dating():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    people = [user for user in load_users().values() if user["username"] != viewer["username"] and user["username"] not in viewer.get("blocked", [])]
+    return render_template("dating.html", user=viewer, people=people)
+
+
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    errors, success = [], ""
+    users = load_users()
+    record = users[viewer["username"]]
+    if request.method == "POST":
+        action = request.form.get("action")
+        password = request.form.get("current_password", "")
+        if action in {"name", "password"} and not check_password_hash(record["password_hash"], password):
+            errors.append("Your current password is required and must be correct.")
+        elif action == "name":
+            first, last = request.form.get("first_name", "").strip(), request.form.get("last_name", "").strip()
+            if not first or not last or not NAME_PATTERN.match(first) or not NAME_PATTERN.match(last):
+                errors.append("Names can only contain letters and spaces.")
+            else:
+                record["first_name"], record["last_name"] = first, last
+                record["name_changed_at"] = datetime.now().isoformat(timespec="seconds")
+                success = "Name changed after password approval."
+        elif action == "password":
+            new_password = request.form.get("new_password", "")
+            if len(new_password) < 8:
+                errors.append("The new password must be at least 8 characters.")
+            else:
+                record["password_hash"] = generate_password_hash(new_password)
+                success = "Password changed."
+        elif action == "location":
+            record["hometown"] = request.form.get("hometown", "").strip()
+            record["home_country"] = request.form.get("home_country", "").strip()
+            success = "Location changed."
+        elif action == "block":
+            username = request.form.get("username", "").strip()
+            if username in users and username != viewer["username"]:
+                blocked = record.setdefault("blocked", [])
+                if username not in blocked:
+                    blocked.append(username)
+                success = f"@{username} is blocked."
+            else:
+                errors.append("That user was not found.")
+        elif action == "unblock":
+            username = request.form.get("username", "")
+            if username in record.setdefault("blocked", []):
+                record["blocked"].remove(username)
+                success = f"@{username} is unblocked."
+        if not errors:
+            save_users(users)
+            viewer = record
+    return render_template("settings.html", user=viewer, errors=errors, success=success, users=users)
+
+
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
     if request.method == "POST":
@@ -987,4 +1227,5 @@ def forgot_password():
 
 
 if __name__ == "__main__":
+    seed_trial_accounts()
     app.run(debug=True, port=5001)
