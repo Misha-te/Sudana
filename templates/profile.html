@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ user.first_name }} {{ user.last_name }} | Sudana</title>
+    <title>{{ display_name(user) }} | Sudana</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="app-body">
@@ -17,6 +17,7 @@
     </header>
 
     <main class="feed">
+        {% for category, message in get_flashed_messages(with_categories=true) %}<div class="inline-error feed-error">{{ message }}</div>{% endfor %}
         <!-- Main profile card -->
         <div class="profile-card profile-main">
             <div class="avatar-wrap">
@@ -29,7 +30,7 @@
                 {% endif %}
             </div>
 
-            <h1 class="profile-name">{{ user.first_name }} {{ user.last_name }}</h1>
+            <h1 class="profile-name">{{ display_name(user) }}</h1>
             <p class="profile-username">@{{ user.username }}</p>
 
             {% if user.category %}
@@ -99,7 +100,7 @@
                         <div class="avatar-sm grad-user"
                              {% if photo_url %}style="background-image: url('{{ photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ user.first_name[0]|upper }}</div>
                         <div class="post-meta">
-                            <strong>{{ user.first_name }} {{ user.last_name }}</strong>
+                            <strong>{{ display_name(user) }}</strong>
                             <span>@{{ user.username }}{% if post.created_label %} · {{ post.created_label }}{% endif %}</span>
                         </div>
                         {% if is_owner and post is mapping and post.id %}
@@ -153,7 +154,13 @@
                                     {% endfor %}
                                 </div>
                             </form>
+                            <button type="button" onclick="const form=this.closest('.post').querySelector('.comment-form'); form.hidden=!form.hidden; if(!form.hidden) form.querySelector('input').focus()">&#128172; Comment</button>
                         </div>
+                        {% for comment in post.get('comments', []) %}<p class="comment"><strong>@{{ comment.username }}</strong> {{ comment.text }}</p>{% endfor %}
+                        <form class="comment-form" hidden method="POST" action="{{ url_for('comment_post', post_id=post.id) }}">
+                            <input name="comment" maxlength="300" aria-label="Comment" required>
+                            <button type="submit" class="comment-send" aria-label="Send comment">➤</button>
+                        </form>
                     {% else %}
                         <p>{{ post }}</p>
                     {% endif %}
