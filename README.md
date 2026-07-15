@@ -10,10 +10,7 @@ This project is currently in active development and serves as both a learning ex
 
 **Status:** Live and Actively Developed
 
-- **Primary:** https://sudana.onrender.com/
-- **Mirror:** https://sudana-ssd.vercel.app/
-
-If one deployment is unavailable, try the other.
+- **Live application:** https://sudana.onrender.com/
 
 ### Trial Accounts
 
