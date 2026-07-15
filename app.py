@@ -19,6 +19,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from markupsafe import Markup, escape
 
+from database import session_scope
+from models import AccountState
+
 app = Flask(__name__)
 # Needed to keep users logged in. For a real deployment use a random secret.
 app.secret_key = os.environ.get("SECRET_KEY", "sudana-dev-secret-key")
@@ -39,6 +42,7 @@ app.config["UPDATE_UPLOAD_FOLDER"] = UPDATE_UPLOAD_FOLDER
 # Simple JSON "database" of user accounts, keyed by username
 USERS_FILE = os.path.join("data", "users.json")
 DATABASE_FILE = os.environ.get("SUDANA_DATABASE", os.path.join("data", "sudana.db"))
+USE_POSTGRES = bool(os.environ.get("DATABASE_URL"))
 
 # Maximum number of words allowed in a bio
 BIO_WORD_LIMIT = 105
@@ -83,7 +87,10 @@ def database():
 
 
 def load_users():
-    """Load user records from SQLite, importing the legacy JSON file once."""
+    """Load records from PostgreSQL in production or legacy SQLite locally."""
+    if USE_POSTGRES:
+        with session_scope() as db_session:
+            return {row.user_key: dict(row.payload) for row in db_session.query(AccountState).all()}
     with database() as connection:
         rows = connection.execute("SELECT username, data FROM users").fetchall()
         if not rows and os.path.exists(USERS_FILE):
@@ -102,6 +109,15 @@ def load_users():
 
 def save_users(users):
     """Upsert records without deleting database users absent from this snapshot."""
+    if USE_POSTGRES:
+        with session_scope() as db_session:
+            for name, record in users.items():
+                state = db_session.get(AccountState, name)
+                if state:
+                    state.payload = dict(record)
+                else:
+                    db_session.add(AccountState(user_key=name, payload=dict(record)))
+        return
     with database() as connection:
         connection.executemany(
             "INSERT OR REPLACE INTO users(username, data) VALUES (?, ?)",

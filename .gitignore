@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.env
+.venv/
+data/sudana-dev.db
+data/sudana-dev.db-*
+static/uploads/support/

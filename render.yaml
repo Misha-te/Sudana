@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sudana
+    runtime: python
+    buildCommand: pip install -r requirements.txt && alembic upgrade head && python migrate_legacy_data.py
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_ENV
+        value: production
+      - key: IMPORT_LEGACY_ON_EMPTY
+        value: "true"
