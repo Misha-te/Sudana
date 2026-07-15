@@ -26,7 +26,7 @@
                       {% if person.photo_url %}style="background-image: url('{{ person.photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ person.initial }}</span>
                 <span class="result-info">
                     <strong>{{ person.name }}</strong>
-                    <span class="result-username">@{{ person.username }}</span>
+                    <span class="result-username">{{ person.identity }}</span>
                 </span>
                 {% if person.category %}
                 <span class="category-badge">{{ person.category }}</span>
@@ -50,10 +50,6 @@
         <a href="{{ url_for('my_geez') }}">
             <span class="nav-ico">&#129309;</span>
             <span>MyGeez</span>
-        </a>
-        <a href="#">
-            <span class="nav-ico">&#10084;&#65039;</span>
-            <span>Dating</span>
         </a>
         <a href="{{ url_for('notifications') }}">
             <span class="nav-ico notification-bell">&#128276;{% if notification_count >= 1 %}<span class="notification-badge">{{ notification_count }}</span>{% endif %}</span>

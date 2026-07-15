@@ -31,7 +31,7 @@
             </div>
 
             <h1 class="profile-name">{{ display_name(user) }}</h1>
-            <p class="profile-username">@{{ user.username }}</p>
+            <p class="profile-username">{{ identity_label(user, include_at=True) }}</p>
 
             {% if user.category %}
             <span class="category-badge">{{ user.category }}</span>
@@ -67,10 +67,12 @@
 
             {% if is_owner %}
             <a href="{{ url_for('edit_profile') }}" class="cta form-submit">Edit profile</a>
-            {% elif is_geez %}
-            <a href="{{ url_for('my_geez') }}" class="cta form-submit connected-geez">&#10003; G</a>
+            {% else %}
+            <div class="profile-action-grid">
+            {% if is_geez %}
+            <a href="{{ url_for('my_geez') }}" class="cta compact-profile-action connected-geez">MyG</a>
             {% elif geez_request_received %}
-            <div class="profile-request-actions">
+            <div class="profile-request-actions compact-profile-action">
                 <form method="POST" action="{{ url_for('accept_geez', username=user.username) }}">
                     <button type="submit" class="cta request-accept">Accept</button>
                 </form>
@@ -79,13 +81,15 @@
                 </form>
             </div>
             {% elif geez_request_sent %}
-            <a href="{{ url_for('my_geez') }}" class="cta form-submit pending-geez">Request pending</a>
+            <a href="{{ url_for('my_geez') }}" class="cta compact-profile-action pending-geez">Request sent</a>
             {% else %}
-            <form method="POST" action="{{ url_for('add_geez', username=user.username) }}" class="profile-geez-action">
-                <button type="submit" class="cta form-submit">Add G</button>
+            <form method="POST" action="{{ url_for('add_geez', username=user.username) }}" class="profile-geez-action compact-profile-action">
+                <button type="submit" class="cta">Add G</button>
             </form>
             {% endif %}
-            {% if not is_owner %}<a class="cta profile-message-button" href="{{ url_for('conversation', username=user.username) }}">Message</a>{% endif %}
+            <a class="cta compact-profile-action" href="{{ url_for('conversation', username=user.username) }}">Message</a>
+            </div>
+            {% endif %}
         </div>
 
         <!-- My Posts -->
@@ -155,6 +159,7 @@
                                 </div>
                             </form>
                             <button type="button" onclick="const form=this.closest('.post').querySelector('.comment-form'); form.hidden=!form.hidden; if(!form.hidden) form.querySelector('input').focus()">&#128172; Comment</button>
+                            <details class="share-menu"><summary>&#10150; Share</summary><div class="share-menu-panel"><a target="_blank" rel="noopener" href="https://wa.me/?text={{ ('Post by ' + display_name(user) + ': ' + post.text + ' ' + url_for('view_post', post_id=post.id, _external=True))|urlencode }}">WhatsApp</a><form method="post" action="{{ url_for('share_post_timeline', post_id=post.id) }}"><textarea name="commentary" placeholder="Say something (optional)"></textarea><button>Share to my timeline</button></form>{% if geez_contacts %}<form method="post" action="{{ url_for('share_post_message', post_id=post.id) }}">{% for person in geez_contacts %}<label><input type="checkbox" name="recipients" value="{{ person.username }}"> {{ person.name }}</label>{% endfor %}<button>Send through Sudana</button></form>{% endif %}</div></details>
                         </div>
                         {% for comment in post.get('comments', []) %}<p class="comment"><strong>@{{ comment.username }}</strong> {{ comment.text }}</p>{% endfor %}
                         <form class="comment-form" hidden method="POST" action="{{ url_for('comment_post', post_id=post.id) }}">
@@ -263,10 +268,6 @@
         <a href="{{ url_for('my_geez') }}">
             <span class="nav-ico">&#129309;</span>
             <span>MyGeez</span>
-        </a>
-        <a href="#">
-            <span class="nav-ico">&#10084;&#65039;</span>
-            <span>Dating</span>
         </a>
         <a href="{{ url_for('notifications') }}">
             <span class="nav-ico notification-bell">&#128276;{% if notification_count >= 1 %}<span class="notification-badge">{{ notification_count }}</span>{% endif %}</span>

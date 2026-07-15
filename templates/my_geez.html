@@ -29,7 +29,7 @@
                 <a class="geez-person-link" href="{{ url_for('profile', name=person.username) }}">
                     <span class="avatar-sm grad-user"
                           {% if person.photo_url %}style="background-image: url('{{ person.photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ person.initial }}</span>
-                    <span class="result-info"><strong>{{ person.name }}</strong><span class="result-username">@{{ person.username }}</span></span>
+                    <span class="result-info"><strong>{{ person.name }}</strong><span class="result-username">{{ person.identity }}</span></span>
                 </a>
                 <div class="geez-request-buttons">
                     <form method="POST" action="{{ url_for('accept_geez', username=person.username) }}"><button type="submit" class="request-accept">Accept</button></form>
@@ -44,10 +44,10 @@
         <section class="geez-request-section">
             <h2 class="section-title">Pending sent</h2>
             {% for person in sent_requests %}
-            <a class="result-row" href="{{ url_for('profile', name=person.username) }}">
+            <div class="result-row"><a class="geez-person-link" href="{{ url_for('profile', name=person.username) }}">
                 <span class="avatar-sm grad-user"
                       {% if person.photo_url %}style="background-image: url('{{ person.photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ person.initial }}</span>
-                <span class="result-info"><strong>{{ person.name }}</strong><span class="result-username">@{{ person.username }}</span></span>
+                <span class="result-info"><strong>{{ person.name }}</strong><span class="result-username">{{ person.identity }}</span></span>
                 <span class="pending-label">Pending</span>
             </a>
             {% endfor %}
@@ -62,10 +62,11 @@
                       {% if person.photo_url %}style="background-image: url('{{ person.photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ person.initial }}</span>
                 <span class="result-info">
                     <strong>{{ person.name }}</strong>
-                    <span class="result-username">@{{ person.username }}</span>
+                    <span class="result-username">{{ person.identity }}</span>
                 </span>
-                {% if person.category %}<span class="category-badge">{{ person.category }}</span>{% endif %}
-            </a>
+                {% if person.category %}<span class="category-badge">{{ person.category }}</span>{% endif %}</a>
+                <form method="post" action="{{ url_for('remove_geez', username=person.username) }}" onsubmit="return confirm('Remove this MyG?')"><button class="text-button">Remove</button></form>
+            </div>
             {% endfor %}
         {% elif not received_requests and not sent_requests %}
         <section class="profile-card geez-empty">
@@ -84,7 +85,6 @@
         <a href="{{ url_for('my_geez') }}" class="active">
             <span class="nav-ico">&#129309;</span><span>MyGeez</span>
         </a>
-        <a href="#"><span class="nav-ico">&#10084;&#65039;</span><span>Dating</span></a>
         <a href="{{ url_for('notifications') }}"><span class="nav-ico notification-bell">&#128276;{% if notification_count >= 1 %}<span class="notification-badge">{{ notification_count }}</span>{% endif %}</span><span>Notifications</span></a>
         <a href="{{ url_for('profile') }}">
             <span class="nav-avatar grad-user"

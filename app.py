@@ -1,13 +1,23 @@
 import json
+import base64
 import os
 import re
+import secrets
 import sqlite3
+import smtplib
+import urllib.parse
+import urllib.request
 import uuid
+from contextlib import closing
 from datetime import date, datetime, timedelta
+from email.message import EmailMessage
 
 from flask import (
+    abort,
     Flask,
     flash,
+    g,
+    has_request_context,
     jsonify,
     redirect,
     render_template,
@@ -90,8 +100,13 @@ def load_users():
     """Load records from PostgreSQL in production or legacy SQLite locally."""
     if USE_POSTGRES:
         with session_scope() as db_session:
-            return {row.user_key: dict(row.payload) for row in db_session.query(AccountState).all()}
-    with database() as connection:
+            records = {row.user_key: dict(row.payload) for row in db_session.query(AccountState).all()}
+            if has_request_context():
+                g.account_state_checksums = {
+                    key: json.dumps(value, sort_keys=True, separators=(",", ":")) for key, value in records.items()
+                }
+            return records
+    with closing(database()) as connection:
         rows = connection.execute("SELECT username, data FROM users").fetchall()
         if not rows and os.path.exists(USERS_FILE):
             try:
@@ -101,6 +116,7 @@ def load_users():
                     "INSERT OR REPLACE INTO users(username, data) VALUES (?, ?)",
                     [(name, json.dumps(record)) for name, record in legacy.items()],
                 )
+                connection.commit()
                 rows = connection.execute("SELECT username, data FROM users").fetchall()
             except (OSError, json.JSONDecodeError):
                 pass
@@ -112,22 +128,28 @@ def save_users(users):
     if USE_POSTGRES:
         with session_scope() as db_session:
             for name, record in users.items():
+                if has_request_context():
+                    before = getattr(g, "account_state_checksums", {}).get(name)
+                    after = json.dumps(record, sort_keys=True, separators=(",", ":"))
+                    if before == after:
+                        continue
                 state = db_session.get(AccountState, name)
                 if state:
                     state.payload = dict(record)
                 else:
                     db_session.add(AccountState(user_key=name, payload=dict(record)))
         return
-    with database() as connection:
+    with closing(database()) as connection:
         connection.executemany(
             "INSERT OR REPLACE INTO users(username, data) VALUES (?, ?)",
             [(name, json.dumps(record)) for name, record in users.items()],
         )
+        connection.commit()
 
 
 def find_user_by_email(email):
     for user in load_users().values():
-        if user["email"].lower() == email.lower():
+        if (user.get("email") or "").lower() == email.lower():
             return user
     return None
 
@@ -187,6 +209,70 @@ def display_name(user):
     return user.get("display_name") or " ".join(
         part for part in (user.get("first_name"), user.get("middle_name"), user.get("last_name")) if part
     )
+
+
+def identity_label(user, include_at=False):
+    chosen = user.get("chosen_username")
+    if chosen is None and not user.get("username_auto"):
+        chosen = user.get("username")
+    if chosen:
+        return f"@{chosen}" if include_at else chosen
+    return display_name(user) or "Sudana member"
+
+
+app.jinja_env.globals["identity_label"] = identity_label
+
+
+def valid_email(value):
+    return bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value or ""))
+
+
+def make_account_key(username):
+    return username or f"member_{uuid.uuid4().hex[:12]}"
+
+
+def generate_code():
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def deliver_code(user, code, purpose):
+    """Deliver by configured email provider; console mode is development only."""
+    mode = os.environ.get("VERIFICATION_MODE", "console").lower()
+    if mode == "console" and os.environ.get("FLASK_ENV") != "production":
+        app.logger.warning("DEV %s code for %s: %s", purpose, identity_label(user), code)
+        return
+    if user.get("email") and os.environ.get("SMTP_HOST"):
+        message = EmailMessage()
+        message["Subject"] = f"Sudana {purpose} code"
+        message["From"] = os.environ["SMTP_FROM"]
+        message["To"] = user["email"]
+        message.set_content(f"Your Sudana code is {code}. It expires in 10 minutes.")
+        with smtplib.SMTP(os.environ["SMTP_HOST"], int(os.environ.get("SMTP_PORT", "587"))) as server:
+            server.starttls()
+            server.login(os.environ["SMTP_USERNAME"], os.environ["SMTP_PASSWORD"])
+            server.send_message(message)
+        return
+    if user.get("phone") and os.environ.get("TWILIO_ACCOUNT_SID"):
+        account_sid = os.environ["TWILIO_ACCOUNT_SID"]
+        token = os.environ["TWILIO_AUTH_TOKEN"]
+        payload = urllib.parse.urlencode({"To": user["phone"], "From": os.environ["TWILIO_PHONE_NUMBER"],
+                                         "Body": f"Your Sudana {purpose} code is {code}. It expires in 10 minutes."}).encode()
+        call = urllib.request.Request(f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json", data=payload)
+        credentials = base64.b64encode(f"{account_sid}:{token}".encode()).decode()
+        call.add_header("Authorization", f"Basic {credentials}")
+        with urllib.request.urlopen(call, timeout=15):
+            pass
+        return
+    raise RuntimeError("Email/SMS delivery is not configured for production.")
+
+
+def set_one_time_code(user, field, purpose):
+    code = generate_code()
+    user[field] = {"hash": generate_password_hash(code),
+                   "expires_at": (datetime.now() + timedelta(minutes=10)).isoformat(),
+                   "attempts": 0, "purpose": purpose}
+    deliver_code(user, code, purpose)
+    return code
 
 
 app.jinja_env.globals["display_name"] = display_name
@@ -336,7 +422,18 @@ def build_feed_posts(users, viewer_username):
             if isinstance(post, dict):
                 if not post_is_visible(post, viewer_username, user["username"]):
                     continue
-                media_filename = post.get("media_filename")
+                original_author = None
+                original = None
+                if post.get("type") == "shared":
+                    for candidate in users.values():
+                        original = next((item for item in candidate.get("posts", [])
+                                         if isinstance(item, dict) and item.get("id") == post.get("original_post_id")
+                                         and item.get("type") != "shared"), None)
+                        if original:
+                            original_author = candidate
+                            break
+                content_post = original or post
+                media_filename = content_post.get("media_filename")
                 reactions = dict(post.get("reactions", {}))
                 for username in post.get("likes", []):
                     reactions.setdefault(username, "like")
@@ -356,6 +453,7 @@ def build_feed_posts(users, viewer_username):
                         "created_label": post.get("created_label", "Just now"),
                         "author_name": display_name(user),
                         "author_username": user["username"],
+                        "author_label": identity_label(user, include_at=True),
                         "author_initial": user["first_name"][0].upper(),
                         "author_photo_url": photo_url_for(user["username"]),
                         "visibility": post.get("visibility", "public"),
@@ -365,7 +463,14 @@ def build_feed_posts(users, viewer_username):
                         "is_owner": user["username"] == viewer_username,
                         "reaction_summary": reaction_summary,
                         "current_user_reaction": reactions.get(viewer_username),
-                        "comments": post.get("comments", []),
+                        "comments": [dict(comment, author_label=identity_label(users.get(comment.get("username"), {}), include_at=True))
+                                     for comment in post.get("comments", [])],
+                        "is_shared": post.get("type") == "shared",
+                        "share_commentary": post.get("commentary", ""),
+                        "original_available": bool(original),
+                        "original_author_name": display_name(original_author) if original_author else "Unavailable post",
+                        "original_text": content_post.get("text", "") if original else "",
+                        "original_created_label": content_post.get("created_label", "") if original else "",
                     }
                 )
             else:
@@ -376,6 +481,7 @@ def build_feed_posts(users, viewer_username):
                         "created_label": "Earlier",
                         "author_name": display_name(user),
                         "author_username": user["username"],
+                        "author_label": identity_label(user, include_at=True),
                         "author_initial": user["first_name"][0].upper(),
                         "author_photo_url": photo_url_for(user["username"]),
                         "visibility": "public",
@@ -388,6 +494,16 @@ def build_feed_posts(users, viewer_username):
                     }
                 )
     return sorted(posts, key=lambda post: post["created_at"], reverse=True)
+
+
+def locate_post(users, post_id):
+    for author in users.values():
+        for post in author.get("posts", []):
+            if isinstance(post, dict) and post.get("id") == post_id:
+                if post.get("type") == "shared":
+                    return locate_post(users, post.get("original_post_id"))
+                return author, post
+    return None, None
 
 
 def seed_trial_accounts():
@@ -445,57 +561,44 @@ def home():
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        # Grab what the user typed in the form
         first_name = request.form.get("first_name", "").strip()
+        middle_name = request.form.get("middle_name", "").strip()
         last_name = request.form.get("last_name", "").strip()
         username = request.form.get("username", "").strip()
-        email = request.form.get("email", "").strip()
-        phone = normalize_phone(request.form.get("phone", ""))
+        contact = request.form.get("contact", "").strip()
+        email = contact.lower() if valid_email(contact) else ""
+        phone = normalize_phone(contact) if not email else ""
         password = request.form.get("password", "")
         gender = request.form.get("gender", "")
         hometown = request.form.get("hometown", "").strip()
-        country = request.form.get("country", "").strip()
-        not_south_sudanese = request.form.get("not_south_sudanese") == "yes"
+        current_location = request.form.get("current_location", "").strip()
         dob = request.form.get("dob", "")
-
         users = load_users()
-
-        # Server-side checks (never trust the browser alone)
         errors = []
         if not first_name:
             errors.append("Please enter your first name.")
         elif not NAME_PATTERN.match(first_name):
             errors.append("First name can only contain letters (no numbers or dashes).")
+        if middle_name and not NAME_PATTERN.match(middle_name):
+            errors.append("Middle name can only contain letters and spaces.")
         if not last_name:
             errors.append("Please enter your last name.")
         elif not NAME_PATTERN.match(last_name):
             errors.append("Last name can only contain letters (no numbers or dashes).")
-
-        if not username:
-            errors.append("Please choose a username.")
-        elif " " in username:
+        if username and " " in username:
             errors.append("Username cannot contain spaces.")
-        elif username in users:
+        elif username and any((item.get("chosen_username") or (None if item.get("username_auto") else item.get("username"))) == username for item in users.values()):
             errors.append("That username is already taken.")
-
         if not email and not phone:
-            errors.append("Please enter an email address or phone number.")
+            errors.append("Enter a valid email address or phone number.")
         elif email and find_user_by_email(email):
             errors.append("An account with that email already exists.")
         if phone and any(item.get("phone") == phone for item in users.values()):
             errors.append("An account with that phone number already exists.")
-
         if len(password) < 8:
             errors.append("Password must be at least 8 characters.")
         if not gender:
             errors.append("Please select your gender.")
-        if not_south_sudanese:
-            if not country:
-                errors.append("Please enter your country.")
-        elif not hometown:
-            errors.append("Please tell us your hometown.")
-
-        # Date of birth must be present, valid, and at least 16 years old
         if not dob:
             errors.append("Please enter your date of birth.")
         else:
@@ -512,55 +615,86 @@ def signup():
                     )
             except ValueError:
                 errors.append("Please enter a valid date of birth.")
-
         if errors:
-            # Send them back to the form with the errors and what they typed
-            return render_template(
-                "signup.html",
-                errors=errors,
-                first_name=first_name,
-                last_name=last_name,
-                username=username,
-                email=email,
-                phone=request.form.get("phone", "").strip(),
-                gender=gender,
-                hometown=hometown,
-                country=country,
-                not_south_sudanese=not_south_sudanese,
-                dob=dob,
-            )
-
-        # Save the new account
-        users[username] = {
-            "first_name": first_name,
-            "last_name": last_name,
-            "username": username,
+            return render_template("signup.html", errors=errors, first_name=first_name,
+                                   middle_name=middle_name, last_name=last_name, username=username,
+                                   contact=contact, gender=gender, hometown=hometown,
+                                   current_location=current_location, dob=dob)
+        account_key = make_account_key(username)
+        record = {
+            "first_name": first_name, "middle_name": middle_name, "last_name": last_name,
+            "username": account_key, "chosen_username": username or None, "username_auto": not bool(username),
             "email": email,
             "phone": phone,
             "password_hash": generate_password_hash(password),
-            "gender": gender,
-            "dob": dob,
-            "hometown": hometown if not_south_sudanese is False else "",
-            "home_country": country if not_south_sudanese else "",
-            "is_south_sudanese": not not_south_sudanese,
-            "bio": "",
-            "category": "",
-            "geez": [],          # accepted MyGeez connections (usernames)
-            "pending_sent": [],  # MyGeez requests you've sent, still pending
-            "notifications": [], # MyGeez requests and acceptance updates
-            "messages": [],
-            "blocked": [],
-            "posts": [],
-            "photo_permission": False,
+            "gender": gender, "dob": dob, "hometown": hometown,
+            "current_location": current_location, "home_country": "", "is_south_sudanese": True,
+            "bio": "", "category": "", "geez": [], "pending_sent": [], "notifications": [],
+            "messages": [], "blocked": [], "posts": [], "photo_permission": False, "is_active": False,
         }
+        try:
+            dev_code = set_one_time_code(record, "verification_code", "account verification")
+        except RuntimeError as exc:
+            errors.append(str(exc))
+            return render_template("signup.html", errors=errors, first_name=first_name,
+                                   middle_name=middle_name, last_name=last_name, username=username,
+                                   contact=contact, gender=gender, hometown=hometown,
+                                   current_location=current_location, dob=dob)
+        users[account_key] = record
         save_users(users)
-
-        # Log them in and take them to their home feed
-        session["username"] = username
-        return redirect(url_for("dashboard"))
-
-    # GET request — just show the empty form
+        session["pending_verification"] = account_key
+        session["dev_verification_code"] = dev_code if os.environ.get("FLASK_ENV") != "production" else None
+        return redirect(url_for("verify_account"))
     return render_template("signup.html", errors=[])
+
+
+@app.route("/verify-account", methods=["GET", "POST"])
+def verify_account():
+    key = session.get("pending_verification")
+    users = load_users()
+    user = users.get(key)
+    if not user:
+        return redirect(url_for("signup"))
+    errors = []
+    if request.method == "POST":
+        code_record = user.get("verification_code", {})
+        try:
+            expired = datetime.fromisoformat(code_record.get("expires_at", "")) < datetime.now()
+        except ValueError:
+            expired = True
+        if code_record.get("attempts", 0) >= 5:
+            errors.append("Too many attempts. Request a new code.")
+        elif expired:
+            errors.append("That code has expired. Request a new code.")
+        elif not check_password_hash(code_record.get("hash", ""), request.form.get("code", "")):
+            code_record["attempts"] = code_record.get("attempts", 0) + 1
+            errors.append("The verification code is incorrect.")
+            save_users(users)
+        else:
+            user["is_active"] = True
+            user.pop("verification_code", None)
+            save_users(users)
+            session.pop("pending_verification", None)
+            session.pop("dev_verification_code", None)
+            session["username"] = key
+            return redirect(url_for("dashboard"))
+    return render_template("verify_code.html", errors=errors, purpose="Verify your account",
+                           dev_code=session.get("dev_verification_code"), resend_endpoint="resend_verification")
+
+
+@app.route("/verify-account/resend", methods=["POST"])
+def resend_verification():
+    key = session.get("pending_verification")
+    users = load_users()
+    if key not in users:
+        return redirect(url_for("signup"))
+    try:
+        code = set_one_time_code(users[key], "verification_code", "account verification")
+        save_users(users)
+        session["dev_verification_code"] = code if os.environ.get("FLASK_ENV") != "production" else None
+    except RuntimeError as exc:
+        flash(str(exc), "comment-error")
+    return redirect(url_for("verify_account"))
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -578,6 +712,9 @@ def login():
         if not errors:
             user = find_user_by_login(email)
             if user and check_password_hash(user["password_hash"], password):
+                if user.get("is_active", True) is False:
+                    session["pending_verification"] = user["username"]
+                    return redirect(url_for("verify_account"))
                 session["username"] = user["username"]
                 return redirect(url_for("dashboard"))
             errors.append("Incorrect username, email, phone number, or password.")
@@ -616,6 +753,7 @@ def dashboard():
     return render_template(
         "dashboard.html",
         username=user["username"],
+        user_identity=identity_label(user, include_at=True),
         photo_url=photo_url_for(user["username"]),
         posts=build_feed_posts(users, user["username"]),
         geez_contacts=geez_contacts,
@@ -714,6 +852,60 @@ def create_post():
         )
         save_users(users)
 
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/post/<post_id>")
+def view_post(post_id):
+    if not current_user():
+        return redirect(url_for("login", next=url_for("view_post", post_id=post_id)))
+    return redirect(url_for("dashboard", _anchor=f"post-{post_id}"))
+
+
+@app.route("/share-post/<post_id>/timeline", methods=["POST"])
+def share_post_timeline(post_id):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    original_author, original = locate_post(users, post_id)
+    if original and post_is_visible(original, viewer["username"], original_author["username"]):
+        now = datetime.now()
+        users[viewer["username"]].setdefault("posts", []).append({
+            "id": uuid.uuid4().hex, "type": "shared", "original_post_id": original["id"],
+            "commentary": request.form.get("commentary", "").strip(), "text": "",
+            "created_at": now.isoformat(timespec="seconds"),
+            "created_label": now.strftime("%b %d, %Y at %-I:%M %p"), "visibility": "public",
+            "shared_with": [], "likes": [], "reactions": {}, "comments": [],
+        })
+        if original_author["username"] != viewer["username"]:
+            original_author.setdefault("notifications", []).append({
+                "id": uuid.uuid4().hex, "type": "post_shared", "actor_username": viewer["username"],
+                "post_id": original["id"], "created_at": now.isoformat(),
+                "created_label": now.strftime("%b %d, %Y at %-I:%M %p"), "read": False})
+        save_users(users)
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/share-post/<post_id>/message", methods=["POST"])
+def share_post_message(post_id):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    author, post = locate_post(users, post_id)
+    recipients = [name for name in request.form.getlist("recipients") if name in users and name != viewer["username"]]
+    if post and post_is_visible(post, viewer["username"], author["username"]):
+        for recipient_name in recipients:
+            recipient = users[recipient_name]
+            message_id = uuid.uuid4().hex
+            message = {"id": message_id, "sender": viewer["username"], "recipient": recipient_name,
+                       "text": f"Shared a post by {display_name(author)}", "shared_post_id": post["id"],
+                       "created_at": datetime.now().isoformat(timespec="seconds"), "read": False,
+                       "request": not conversation_is_accepted(recipient, viewer["username"]), "status": "sent"}
+            recipient.setdefault("messages", []).append(message)
+            users[viewer["username"]].setdefault("messages", []).append(dict(message, read=True, request=False))
+        save_users(users)
     return redirect(url_for("dashboard"))
 
 
@@ -855,6 +1047,16 @@ def react_post(post_id):
                     reactions.pop(user["username"], None)
                 else:
                     reactions[user["username"]] = reaction
+                    if author["username"] != user["username"] and not any(
+                        notice.get("type") == "post_reaction" and notice.get("actor_username") == user["username"]
+                        and notice.get("post_id") == post_id and not notice.get("read")
+                        for notice in author.get("notifications", [])
+                    ):
+                        now = datetime.now()
+                        author.setdefault("notifications", []).append({
+                            "id": uuid.uuid4().hex, "type": "post_reaction", "actor_username": user["username"],
+                            "post_id": post_id, "created_at": now.isoformat(),
+                            "created_label": now.strftime("%b %d, %Y at %-I:%M %p"), "read": False})
                 save_users(users)
                 return redirect(request.referrer or url_for("dashboard"))
 
@@ -877,6 +1079,7 @@ def search():
             full_name = display_name(user).lower()
             if (
                 needle in user["username"].lower()
+                or needle in (user.get("chosen_username") or "").lower()
                 or needle in user["first_name"].lower()
                 or needle in user["last_name"].lower()
                 or needle in full_name
@@ -884,6 +1087,7 @@ def search():
                 results.append(
                     {
                         "username": user["username"],
+                        "identity": identity_label(user, include_at=True),
                         "name": display_name(user),
                         "category": user.get("category", ""),
                         "initial": user["first_name"][0].upper(),
@@ -909,6 +1113,7 @@ def my_geez():
             return None
         return {
             "username": username,
+            "identity": identity_label(person, include_at=True),
             "name": display_name(person),
             "category": person.get("category", ""),
             "initial": person["first_name"][0].upper(),
@@ -1028,6 +1233,9 @@ def reject_geez(username):
     requester = users.get(username)
     if requester and viewer["username"] in requester.get("pending_sent", []):
         requester["pending_sent"].remove(viewer["username"])
+        now = datetime.now().isoformat(timespec="seconds")
+        requester.setdefault("myg_request_history", []).append({"recipient": viewer["username"], "status": "rejected", "resolved_at": now})
+        users[viewer["username"]].setdefault("myg_request_history", []).append({"sender": username, "status": "rejected", "resolved_at": now})
         users[viewer["username"]]["notifications"] = [
             notice
             for notice in users[viewer["username"]].get("notifications", [])
@@ -1038,6 +1246,23 @@ def reject_geez(username):
         ]
         save_users(users)
 
+    return redirect(url_for("my_geez"))
+
+
+@app.route("/remove-geez/<username>", methods=["POST"])
+def remove_geez(username):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    users = load_users()
+    if username in users:
+        if username in users[viewer["username"]].get("geez", []):
+            users[viewer["username"]]["geez"].remove(username)
+        if viewer["username"] in users[username].get("geez", []):
+            users[username]["geez"].remove(viewer["username"])
+        now = datetime.now().isoformat(timespec="seconds")
+        users[viewer["username"]].setdefault("myg_request_history", []).append({"user": username, "status": "removed", "resolved_at": now})
+        save_users(users)
     return redirect(url_for("my_geez"))
 
 
@@ -1088,6 +1313,8 @@ def open_notification(notice_id):
     save_users(users)
     if notice.get("type") == "post_comment":
         return redirect(url_for("dashboard", _anchor=f"comment-{notice.get('comment_id')}"))
+    if notice.get("type") in {"post_reaction", "post_shared"}:
+        return redirect(url_for("dashboard", _anchor=f"post-{notice.get('post_id')}"))
     if notice.get("type") == "geez_request":
         return redirect(url_for("my_geez", _anchor="received-requests"))
     return redirect(url_for("profile", name=notice.get("actor_username")))
@@ -1166,13 +1393,10 @@ def profile():
 
     # If you're viewing your own profile, expose your MyGeez contacts so
     # the post editor can offer the same privacy/sharing UI as on the feed.
-    geez_contacts = []
-    if is_owner:
-        geez_contacts = [
-            {"username": name, "name": display_name(users[name])}
-            for name in viewer.get("geez", [])
-            if name in users
-        ]
+    geez_contacts = [
+        {"username": name, "name": display_name(users[name])}
+        for name in viewer.get("geez", []) if name in users
+    ]
 
     return render_template(
         "profile.html",
@@ -1309,7 +1533,7 @@ def messages():
         peer = message.get("sender") if message.get("sender") != viewer["username"] else message.get("recipient")
         if not peer or peer not in users:
             continue
-        conversation = conversations.setdefault(peer, {"username": peer, "unread_count": 0,
+        conversation = conversations.setdefault(peer, {"username": peer, "identity": identity_label(users[peer], include_at=True), "unread_count": 0,
                                                          "request": not conversation_is_accepted(viewer, peer), "latest": ""})
         if message.get("sender") == peer and not message.get("read"):
             conversation["unread_count"] += 1
@@ -1349,6 +1573,12 @@ def conversation(username):
     for message in thread:
         message.update(message_time_parts(message.get("created_at")))
         message.setdefault("status", "read" if message.get("read") else "delivered")
+        if message.get("shared_post_id"):
+            shared_author, shared = locate_post(users, message["shared_post_id"])
+            message["shared_post"] = ({"id": shared["id"], "text": shared.get("text", ""),
+                                       "author_name": display_name(shared_author),
+                                       "media_filename": shared.get("media_filename")}
+                                      if shared else None)
     request_mode = not conversation_is_accepted(record, username) and any(
         message.get("sender") == username for message in thread
     )
@@ -1458,11 +1688,8 @@ def conversation_status(username):
 
 @app.route("/dating")
 def dating():
-    viewer = current_user()
-    if not viewer:
-        return redirect(url_for("login"))
-    people = [user for user in load_users().values() if user["username"] != viewer["username"] and user["username"] not in active_blocked_usernames(viewer)]
-    return render_template("dating.html", user=viewer, people=people)
+    """Dating is preserved for future development but unavailable for now."""
+    abort(404)
 
 
 @app.route("/settings")
@@ -1640,16 +1867,131 @@ def block_duration(username):
     return render_template("block_duration.html", user=viewer, person=users[username], error=error)
 
 
+@app.route("/support")
+def support():
+    if not current_user():
+        return redirect(url_for("login"))
+    return render_template("support.html")
+
+
+@app.route("/support/report", methods=["GET", "POST"])
+def support_report():
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    errors = []
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        app_area = request.form.get("app_area", "").strip()
+        screenshot = request.files.get("screenshot")
+        attachment = None
+        if not title: errors.append("Problem title is required.")
+        if not description: errors.append("Please describe the problem.")
+        if not app_area: errors.append("Select where the problem happened.")
+        if screenshot and screenshot.filename:
+            extension = screenshot.filename.rsplit(".", 1)[-1].lower() if "." in screenshot.filename else ""
+            if extension not in ALLOWED_EXTENSIONS:
+                errors.append("Screenshots must be PNG, JPG, GIF, or WebP files.")
+            else:
+                content = screenshot.read(3 * 1024 * 1024 + 1)
+                if len(content) > 3 * 1024 * 1024:
+                    errors.append("Screenshot files must be 3 MB or smaller.")
+                else:
+                    attachment = {"filename": secure_filename(screenshot.filename),
+                                  "content_type": screenshot.mimetype,
+                                  "data": base64.b64encode(content).decode("ascii"), "size": len(content)}
+        if not errors:
+            users = load_users()
+            users[viewer["username"]].setdefault("support_reports", []).append({
+                "id": uuid.uuid4().hex, "title": title, "description": description,
+                "app_area": app_area, "device_info": request.form.get("device_info", "").strip(),
+                "created_at": datetime.now().isoformat(timespec="seconds"), "status": "open",
+                "attachment": attachment,
+            })
+            save_users(users)
+            return render_template("settings_result.html", title="Report submitted",
+                                   message="Thank you. Sudana support has received your report.")
+    return render_template("support_report.html", errors=errors)
+
+
+@app.route("/support/help")
+def help_center():
+    if not current_user():
+        return redirect(url_for("login"))
+    return render_template("help_center.html")
+
+
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
     if request.method == "POST":
-        email = request.form.get("email", "").strip()
-        if not email:
-            return render_template("forgot_password.html", errors=["Please enter your email."])
-        # In a real app you'd email a reset link here.
-        return render_template("forgot_password.html", sent=True, email=email)
-
+        identifier = request.form.get("identifier", "").strip()
+        user = find_user_by_login(identifier)
+        if not user:
+            return render_template("forgot_password.html", errors=["No account was found with that email or phone number."])
+        users = load_users()
+        record = users[user["username"]]
+        try:
+            code = set_one_time_code(record, "password_reset_code", "password reset")
+        except RuntimeError as exc:
+            return render_template("forgot_password.html", errors=[str(exc)])
+        save_users(users)
+        session["password_reset_user"] = user["username"]
+        session["dev_reset_code"] = code if os.environ.get("FLASK_ENV") != "production" else None
+        return redirect(url_for("verify_password_reset"))
     return render_template("forgot_password.html", errors=[])
+
+
+@app.route("/forgot-password/verify", methods=["GET", "POST"])
+def verify_password_reset():
+    key = session.get("password_reset_user")
+    users = load_users()
+    user = users.get(key)
+    if not user:
+        return redirect(url_for("forgot_password"))
+    errors = []
+    if request.method == "POST":
+        entry = user.get("password_reset_code", {})
+        try:
+            expired = datetime.fromisoformat(entry.get("expires_at", "")) < datetime.now()
+        except ValueError:
+            expired = True
+        if entry.get("attempts", 0) >= 5:
+            errors.append("Too many attempts. Start again.")
+        elif expired:
+            errors.append("That reset code has expired.")
+        elif not check_password_hash(entry.get("hash", ""), request.form.get("code", "")):
+            entry["attempts"] = entry.get("attempts", 0) + 1
+            save_users(users)
+            errors.append("The reset code is incorrect.")
+        else:
+            session["password_reset_verified"] = True
+            return redirect(url_for("reset_password"))
+    return render_template("verify_code.html", purpose="Verify password reset", errors=errors,
+                           dev_code=session.get("dev_reset_code"), resend_endpoint=None)
+
+
+@app.route("/forgot-password/reset", methods=["GET", "POST"])
+def reset_password():
+    key = session.get("password_reset_user")
+    if not key or not session.get("password_reset_verified"):
+        return redirect(url_for("forgot_password"))
+    errors = []
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if len(password) < 8:
+            errors.append("Password must be at least 8 characters.")
+        elif password != request.form.get("confirm_password", ""):
+            errors.append("Passwords do not match.")
+        else:
+            users = load_users()
+            users[key]["password_hash"] = generate_password_hash(password)
+            users[key].pop("password_reset_code", None)
+            save_users(users)
+            for item in ("password_reset_user", "password_reset_verified", "dev_reset_code"):
+                session.pop(item, None)
+            return render_template("settings_result.html", title="Password changed", message="You can now log in with your new password.")
+    return render_template("reset_password.html", errors=errors)
 
 
 if __name__ == "__main__":

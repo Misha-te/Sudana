@@ -82,7 +82,7 @@
                      {% if post.author_photo_url %}style="background-image: url('{{ post.author_photo_url }}'); background-size: cover; background-position: center; color: transparent;"{% endif %}>{{ post.author_initial }}</div>
                 <div class="post-meta">
                     <strong>{{ post.author_name }}</strong>
-                    <span>@{{ post.author_username }} · {{ post.created_label }}</span>
+                    <span>{{ post.author_label }} · {{ post.created_label }}</span>
                 </div>
                 {% if post.is_owner %}
                 <details class="post-options">
@@ -106,7 +106,8 @@
                 </details>
                 {% endif %}
             </header>
-            {% if post.text %}<p class="post-text">{{ post.text|linkify }}</p>{% endif %}
+            {% if post.is_shared %}<div class="shared-post-label">↻ {{ post.author_name }} shared a post</div>{% if post.share_commentary %}<p class="post-text">{{ post.share_commentary|linkify }}</p>{% endif %}<div class="original-post-card">{% if post.original_available %}<strong>{{ post.original_author_name }}</strong><small>{{ post.original_created_label }}</small><p>{{ post.original_text|linkify }}</p>{% else %}<p class="muted">The original post is no longer available.</p>{% endif %}</div>{% endif %}
+            {% if post.text and not post.is_shared %}<p class="post-text">{{ post.text|linkify }}</p>{% endif %}
             {% if post.media_url %}
                 {% if post.media_type == 'video' %}
                 <video class="post-media" controls preload="metadata"><source src="{{ post.media_url }}">Your browser does not support this video.</video>
@@ -136,9 +137,13 @@
                     </div>
                 </form>
                 <button type="button" onclick="const form=this.closest('.post').querySelector('.comment-form'); form.hidden=!form.hidden; if(!form.hidden) form.querySelector('input').focus()">&#128172; Comment</button>
-                <button>&#10150; Share</button>
+                <details class="share-menu"><summary>&#10150; Share</summary><div class="share-menu-panel">
+                    <a target="_blank" rel="noopener" href="https://wa.me/?text={{ ('Post by ' + post.author_name + ': ' + post.text + ' ' + url_for('view_post', post_id=post.id, _external=True))|urlencode }}">WhatsApp</a>
+                    <form method="post" action="{{ url_for('share_post_timeline', post_id=post.id) }}"><textarea name="commentary" placeholder="Say something (optional)"></textarea><button>Share to my timeline</button></form>
+                    {% if geez_contacts %}<form method="post" action="{{ url_for('share_post_message', post_id=post.id) }}"><strong>Send through Sudana</strong>{% for person in geez_contacts %}<label><input type="checkbox" name="recipients" value="{{ person.username }}"> {{ person.name }}</label>{% endfor %}<button>Send post</button></form>{% endif %}
+                </div></details>
             </div>
-            {% for comment in post.comments %}<p class="comment" id="comment-{{ comment.id }}"><strong>@{{ comment.username }}</strong> {{ comment.text }}</p>{% endfor %}
+            {% for comment in post.comments %}<p class="comment" id="comment-{{ comment.id }}"><strong>{{ comment.author_label }}</strong> {{ comment.text }}</p>{% endfor %}
             <form class="comment-form" hidden method="POST" action="{{ url_for('comment_post', post_id=post.id) }}">
                 <input name="comment" maxlength="300" aria-label="Comment" required>
                 <button type="submit" class="comment-send" aria-label="Send comment">➤</button>
@@ -240,16 +245,16 @@
             <div class="account-menu-heading">
                 <div>
                     <p class="account-menu-kicker">Signed in as</p>
-                    <h2 id="account-menu-title">@{{ username }}</h2>
+                    <h2 id="account-menu-title">{{ user_identity }}</h2>
                 </div>
                 <button class="menu-close" type="button" aria-label="Close account menu">&times;</button>
             </div>
             <div class="account-menu-items">
                 <a href="{{ url_for('settings') }}" class="account-menu-item">&#9881;&#65039; <span>Settings &amp; Privacy</span></a>
-                <button type="button" class="account-menu-item placeholder-item">&#128172; <span>Support from our team</span><small>Coming soon</small></button>
+                <a href="{{ url_for('support') }}" class="account-menu-item">&#128172; <span>Support from our team</span></a>
                 <button type="button" id="dark-mode-toggle" class="account-menu-item">&#9790; <span id="dark-mode-label">Dark mode</span><small id="dark-mode-status"></small></button>
                 <button type="button" class="account-menu-item placeholder-item">&#10024; <span>Premium modes</span><small>Coming soon</small></button>
-                <a class="account-menu-item logout-menu-item" href="{{ url_for('logout') }}">&#10162; <span>Log out @{{ username }}</span></a>
+                <a class="account-menu-item logout-menu-item" href="{{ url_for('logout') }}">&#10162; <span>Log out {{ user_identity }}</span></a>
             </div>
         </section>
     </div>
@@ -263,10 +268,6 @@
         <a href="{{ url_for('my_geez') }}">
             <span class="nav-ico">&#129309;</span>
             <span>MyGeez</span>
-        </a>
-        <a href="{{ url_for('dating') }}">
-            <span class="nav-ico">&#10084;&#65039;</span>
-            <span>Dating</span>
         </a>
         <a href="{{ url_for('notifications') }}">
             <span class="nav-ico notification-bell">&#128276;{% if notification_count >= 1 %}<span class="notification-badge">{{ notification_count }}</span>{% endif %}</span>

@@ -1,144 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up | Sudana</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <header class="navbar">
-        <div class="logo">Sudana</div>
-        <nav>
-            <a href="{{ url_for('home') }}">Home</a>
-        </nav>
-    </header>
-
-    <main class="form-page">
-        <div class="form-card">
-            <h1>Create your account <span class="star">★</span></h1>
-            <p class="subtitle">Join Sudana — tell us a little about you.</p>
-
-            {% if errors %}
-            <ul class="errors">
-                {% for error in errors %}
-                <li>{{ error }}</li>
-                {% endfor %}
-            </ul>
-            {% endif %}
-
-            <form method="POST" action="{{ url_for('signup') }}">
-                <label for="first_name">First name</label>
-                <input type="text" id="first_name" name="first_name"
-                       value="{{ first_name or '' }}" placeholder="First name" required>
-
-                <label for="last_name">Last name</label>
-                <input type="text" id="last_name" name="last_name"
-                       value="{{ last_name or '' }}" placeholder="Last name" required>
-                <small class="hint">Names may only contain letters (no numbers or dashes).</small>
-
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username"
-                       value="{{ username or '' }}" placeholder="Choose a username" required>
-                <small class="hint">Your unique @handle — letters, numbers, no spaces.</small>
-
-                <label for="email">Email (optional if using phone)</label>
-                <input type="email" id="email" name="email"
-                       value="{{ email or '' }}" placeholder="you@example.com">
-
-                <label for="phone">Phone number (optional if using email)</label>
-                <input type="tel" id="phone" name="phone" value="{{ phone or '' }}" placeholder="+211 92 000 0000">
-
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password"
-                       minlength="8" placeholder="At least 8 characters" required>
-                <small class="hint">Must be at least 8 characters long.</small>
-
-                <label for="gender">Gender</label>
-                <select id="gender" name="gender" required>
-                    <option value="" disabled {{ 'selected' if not gender else '' }}>
-                        Select your gender
-                    </option>
-                    {% set genders = ["Male", "Female", "Other"] %}
-                    {% for g in genders %}
-                    <option value="{{ g }}" {{ 'selected' if gender == g else '' }}>{{ g }}</option>
-                    {% endfor %}
-                </select>
-
-                <div id="hometown-field">
-                    <label for="hometown">Hometown</label>
-                    <input type="text" id="hometown" name="hometown" list="towns"
-                           value="{{ hometown or '' }}"
-                           placeholder="Where you call home in South Sudan"
-                           {{ '' if not_south_sudanese else 'required' }}>
-                    <datalist id="towns">
-                        <option value="Juba (Central Equatoria)">
-                        <option value="Wau (Western Bahr el Ghazal)">
-                        <option value="Malakal (Upper Nile)">
-                        <option value="Aweil (Northern Bahr el Ghazal)">
-                        <option value="Bor (Jonglei)">
-                        <option value="Bentiu (Unity)">
-                        <option value="Rumbek (Lakes)">
-                        <option value="Torit (Eastern Equatoria)">
-                        <option value="Yambio (Western Equatoria)">
-                        <option value="Kuajok (Warrap)">
-                        <option value="Abyei">
-                    </datalist>
-                </div>
-
-                <label class="checkbox-label">
-                    <input type="checkbox" id="not-ss" name="not_south_sudanese"
-                           value="yes" {{ 'checked' if not_south_sudanese else '' }}>
-                    I'm not from South Sudan
-                </label>
-
-                <div id="country-field" style="{{ '' if not_south_sudanese else 'display: none;' }}">
-                    <label for="country">Country</label>
-                    <input type="text" id="country" name="country"
-                           value="{{ country or '' }}" placeholder="Enter your country"
-                           {{ 'required' if not_south_sudanese else '' }}>
-                </div>
-
-                <label for="dob">Date of birth</label>
-                <input type="date" id="dob" name="dob" value="{{ dob or '' }}" required>
-
-                <button type="submit" class="cta form-submit">Sign Up</button>
-            </form>
-
-            <p class="subtitle">
-                <a href="{{ url_for('home') }}">← Back to home</a>
-            </p>
-        </div>
-    </main>
-
-    <footer class="footer">
-        <p>&copy; 2026 Sudana. All rights reserved.</p>
-    </footer>
-
-    <script>
-        // Swap between the Hometown and Country fields
-        const notSS = document.getElementById("not-ss");
-        const hometownField = document.getElementById("hometown-field");
-        const countryField = document.getElementById("country-field");
-        const hometown = document.getElementById("hometown");
-        const country = document.getElementById("country");
-
-        function toggleHome() {
-            if (notSS.checked) {
-                hometownField.style.display = "none";
-                countryField.style.display = "block";
-                hometown.required = false;
-                country.required = true;
-            } else {
-                hometownField.style.display = "block";
-                countryField.style.display = "none";
-                hometown.required = true;
-                country.required = false;
-            }
-        }
-
-        notSS.addEventListener("change", toggleHome);
-        toggleHome(); // set the correct state on page load
-    </script>
-</body>
-</html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign Up | Sudana</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body><header class="navbar"><div class="logo">Sudana</div><nav><a href="{{ url_for('home') }}">Home</a></nav></header><main class="form-page"><section class="form-card"><h1>Create your account <span class="star">★</span></h1><p class="subtitle">Fields marked with an asterisk (*) are required.</p>
+{% if errors %}<ul class="errors">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+<form method="post" action="{{ url_for('signup') }}" class="stack-form signup-form">
+<label>First name <span class="required-star">*</span><input name="first_name" value="{{ first_name or '' }}" required autocomplete="given-name"></label>
+<label>Middle name <small>(Optional)</small><input name="middle_name" value="{{ middle_name or '' }}" autocomplete="additional-name"></label>
+<label>Last name <span class="required-star">*</span><input name="last_name" value="{{ last_name or '' }}" required autocomplete="family-name"></label>
+<label>Username <small>(Optional)</small><input name="username" value="{{ username or '' }}" autocomplete="username"><small class="hint">If left blank, Sudana displays your first and last name.</small></label>
+<label>Phone number or email <span class="required-star">*</span><input name="contact" value="{{ contact or '' }}" required autocomplete="email" placeholder="you@example.com or +211..."></label>
+<label>Password <span class="required-star">*</span><input type="password" name="password" minlength="8" required autocomplete="new-password"><small class="hint">At least 8 characters.</small></label>
+<label>Gender <span class="required-star">*</span><select name="gender" required><option value="">Select gender</option>{% for item in ['Male','Female','Other','Prefer not to say'] %}<option {{ 'selected' if gender == item }}>{{ item }}</option>{% endfor %}</select></label>
+<label>Hometown<input name="hometown" value="{{ hometown or '' }}"></label>
+<label>Current location<input name="current_location" value="{{ current_location or '' }}"></label>
+<label>Date of birth <span class="required-star">*</span><input type="date" name="dob" value="{{ dob or '' }}" required></label>
+<button class="cta form-submit">Continue</button></form><p class="subtitle"><a href="{{ url_for('login') }}">Already have an account? Log in</a></p></section></main></body></html>

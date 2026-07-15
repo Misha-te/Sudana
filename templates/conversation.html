@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ peer_name }} | Messages</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><script src="{{ url_for('static', filename='theme.js') }}"></script></head>
-<body class="app-body"><header class="topbar"><a class="hamburger back-link" href="{{ url_for('messages', tab='requests' if request_mode else 'all') }}">←</a><div class="conversation-title"><strong>{{ peer_name }}</strong><small>@{{ peer.username }}</small></div><span></span></header>
+<body class="app-body"><header class="topbar"><a class="hamburger back-link" href="{{ url_for('messages', tab='requests' if request_mode else 'all') }}">←</a><div class="conversation-title"><strong>{{ peer_name }}</strong><small>{{ identity_label(peer, include_at=True) }}</small></div><span></span></header>
 <main class="feed narrow-feed">
 {% for category, message in get_flashed_messages(with_categories=true) %}<div class="inline-error">{{ message }}</div>{% endfor %}
 {% if request_mode %}<section class="message-request-actions"><p><strong>Message request</strong><br><small>Accept to move this conversation into All Messages.</small></p><div><form method="post" action="{{ url_for('accept_message_request', username=peer.username) }}"><button class="request-accept">Accept</button></form><form method="post" action="{{ url_for('decline_message_request', username=peer.username) }}"><button class="request-reject">Decline or Delete</button></form></div></section>{% endif %}
@@ -8,7 +8,7 @@
 {% set state = namespace(last_date='') %}
 {% for message in thread %}
 {% if message.date_label != state.last_date %}<div class="message-date-label">{{ message.date_label }}</div>{% set state.last_date = message.date_label %}{% endif %}
-<div class="bubble {{ 'mine' if message.sender == user.username else 'theirs' }}"><small class="bubble-author">{{ peer_name if message.sender == peer.username else 'You' }}</small><p>{{ message.text }}</p><div class="message-meta"><time>{{ message.time_label }}</time>{% if message.sender == user.username %}<span class="message-status {{ message.status }}" data-message-id="{{ message.id }}" aria-label="{{ message.status }}">{{ '✓' if message.status == 'sent' else '✓✓' }}</span>{% endif %}</div></div>
+<div class="bubble {{ 'mine' if message.sender == user.username else 'theirs' }}"><small class="bubble-author">{{ peer_name if message.sender == peer.username else 'You' }}</small><p>{{ message.text }}</p>{% if message.get('shared_post') %}<a class="message-shared-post" href="{{ url_for('view_post', post_id=message.shared_post.id) }}"><strong>{{ message.shared_post.author_name }}</strong><span>{{ message.shared_post.text }}</span></a>{% elif message.get('shared_post_id') %}<span class="muted">Original post unavailable</span>{% endif %}<div class="message-meta"><time>{{ message.time_label }}</time>{% if message.sender == user.username %}<span class="message-status {{ message.status }}" data-message-id="{{ message.id }}" aria-label="{{ message.status }}">{{ '✓' if message.status == 'sent' else '✓✓' }}</span>{% endif %}</div></div>
 {% else %}<p class="muted">Start the conversation.</p>{% endfor %}
 <p id="typing-indicator" class="typing-indicator" hidden>{{ peer.first_name }} is typing...</p>
 </section>
