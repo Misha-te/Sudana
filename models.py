@@ -163,6 +163,20 @@ class Update(Base):
     image_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    views: Mapped[list["UpdateView"]] = relationship(back_populates="update", cascade="all, delete-orphan")
+
+
+class UpdateView(Base):
+    """One unique authenticated viewer for an Update."""
+    __tablename__ = "update_views"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    update_id: Mapped[str] = mapped_column(ForeignKey("updates.id", ondelete="CASCADE"), index=True)
+    viewer_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    first_viewed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_viewed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    update: Mapped[Update] = relationship(back_populates="views")
+    viewer: Mapped[User] = relationship()
+    __table_args__ = (UniqueConstraint("update_id", "viewer_id", name="uq_update_viewer"),)
 
 
 class VerificationCode(Base):
@@ -220,3 +234,4 @@ class SupportAttachment(Base):
 
 Index("ix_messages_conversation_created", Message.conversation_id, Message.created_at)
 Index("ix_notifications_recipient_created", Notification.recipient_id, Notification.created_at)
+Index("ix_update_views_update_first_viewed", UpdateView.update_id, UpdateView.first_viewed_at)

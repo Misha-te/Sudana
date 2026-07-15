@@ -1,1 +1,23 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ owner_name }}'s Update | Sudana</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head><body class="update-page"><header class="update-header"><a href="{{ url_for('dashboard') }}">×</a><div><strong>{{ owner_name }}</strong><small>@{{ owner.username }}</small></div></header><main class="update-content">{% if image_url %}<img src="{{ image_url }}" alt="Update from @{{ owner.username }}">{% endif %}{% if update.text %}<p>{{ update.text }}</p>{% endif %}</main></body></html>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ owner_name }}'s Update | Sudana</title><link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><script src="{{ url_for('static', filename='theme.js') }}"></script></head>
+<body class="update-page"><header class="update-header"><a href="{{ url_for('dashboard') }}" aria-label="Close Update">×</a><div><strong>{{ owner_name }}</strong><small>{{ identity_label(owner, include_at=True) }}</small></div></header>
+<main class="update-content">{% if image_url %}<img src="{{ image_url }}" alt="Update from {{ identity_label(owner, include_at=True) }}">{% endif %}{% if update.text %}<p>{{ update.text }}</p>{% endif %}</main>
+{% if is_owner %}<footer class="update-view-footer"><a id="update-view-count" href="{{ url_for('update_viewers', username=owner.username, update_id=update.id) }}">👁 {{ viewer_count }} {{ 'view' if viewer_count == 1 else 'views' }}</a></footer>{% endif %}
+<script>
+{% if is_owner %}
+const countUrl = {{ url_for('update_view_data', username=owner.username, update_id=update.id)|tojson }};
+const countLink = document.getElementById('update-view-count');
+async function refreshViewCount() {
+  try {
+    const response = await fetch(countUrl, {cache:'no-store'});
+    if (!response.ok) return;
+    const data = await response.json();
+    countLink.textContent = `👁 ${data.count} ${data.count === 1 ? 'view' : 'views'}`;
+  } catch (_) {}
+}
+setInterval(refreshViewCount, 2000);
+{% else %}
+const recordUrl = {{ url_for('record_update_view', username=owner.username, update_id=update.id)|tojson }};
+window.addEventListener('load', () => fetch(recordUrl, {method:'POST', headers:{'Accept':'application/json'}}).catch(() => {}), {once:true});
+{% endif %}
+</script></body></html>

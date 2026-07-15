@@ -37,6 +37,8 @@
                     <a class="notification-link" href="{{ url_for('open_notification', notice_id=notice.id) }}"><strong>{{ notice.actor_name }}</strong> reacted to your post.</a>
                     {% elif notice.type == 'post_shared' %}
                     <a class="notification-link" href="{{ url_for('open_notification', notice_id=notice.id) }}"><strong>{{ notice.actor_name }}</strong> shared your post.</a>
+                    {% elif notice.type == 'message' %}
+                    <a class="notification-link" href="{{ url_for('open_notification', notice_id=notice.id) }}"><strong>{{ notice.actor_name }}</strong> sent you a message.</a>
                     {% endif %}
                     <span class="notification-time">{{ notice.created_label }}</span>
                     {% if notice.type == 'geez_request' and notice.is_pending %}

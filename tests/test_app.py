@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 import io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import app as sudana
 
@@ -34,6 +34,10 @@ class SudanaFlowsTest(unittest.TestCase):
             key = state["pending_verification"]
         self.client.post("/verify-account", data={"code": code})
         return key
+
+    def login_as(self, client, username):
+        with client.session_transaction() as state:
+            state["username"] = username
 
     def test_required_signup_fields(self):
         response = self.client.post("/signup", data={})
@@ -132,6 +136,122 @@ class SudanaFlowsTest(unittest.TestCase):
         users = sudana.load_users()
         self.assertEqual(users[first]["messages"][-1]["shared_post_id"], post_id)
         self.assertTrue(any(item.get("type") == "post_reaction" for item in users[first]["notifications"]))
+
+    def test_live_message_events_are_saved_ordered_read_and_not_duplicated(self):
+        first = self.create_verified()
+        self.client.get("/logout")
+        second = self.create_verified(username="second", contact="second@example.com")
+        first_client = sudana.app.test_client()
+        second_client = sudana.app.test_client()
+        self.login_as(first_client, first)
+        self.login_as(second_client, second)
+
+        # The recipient opens the same conversation and establishes a heartbeat.
+        self.assertEqual(second_client.get(f"/messages/conversation/{first}").status_code, 200)
+        first_client.post(f"/messages/typing/{second}", json={"typing": True})
+        typing_event = second_client.get(f"/messages/conversation/{first}/events").get_json()
+        self.assertTrue(typing_event["typing"])
+
+        response = first_client.post(
+            f"/messages/send/{second}",
+            data={"message": "First live message"},
+            headers={"Accept": "application/json", "X-Requested-With": "XMLHttpRequest"},
+        )
+        self.assertEqual(response.status_code, 201)
+        sent = response.get_json()["message"]
+        self.assertTrue(sent["mine"])
+        self.assertEqual(sent["status"], "read")
+
+        event = second_client.get(f"/messages/conversation/{first}/events").get_json()
+        ids = [message["id"] for message in event["messages"]]
+        self.assertEqual(ids.count(sent["id"]), 1)
+        self.assertFalse(event["typing"])
+        self.assertEqual(ids, [message["id"] for message in sorted(
+            event["messages"], key=lambda item: (item["created_at"], item["id"])
+        )])
+
+        # Reconnection returns the same stable ID, allowing the client to dedupe.
+        reconnected = second_client.get(f"/messages/conversation/{first}/events").get_json()
+        self.assertEqual([item["id"] for item in reconnected["messages"]].count(sent["id"]), 1)
+        stored = sudana.load_users()[second]["messages"]
+        self.assertEqual([item["id"] for item in stored].count(sent["id"]), 1)
+
+    def test_closed_conversation_increases_unread_open_conversation_does_not(self):
+        first = self.create_verified()
+        self.client.get("/logout")
+        second = self.create_verified(username="second", contact="second@example.com")
+        first_client = sudana.app.test_client()
+        second_client = sudana.app.test_client()
+        self.login_as(first_client, first)
+        self.login_as(second_client, second)
+
+        first_client.post(f"/messages/send/{second}", data={"message": "Unread while closed"})
+        first_client.post(f"/messages/send/{second}", data={"message": "A second closed message"})
+        closed_record = sudana.load_users()[second]
+        self.assertFalse(closed_record["messages"][-1]["read"])
+        self.assertFalse(closed_record["messages"][-2]["read"])
+        self.assertEqual(len([item for item in closed_record["notifications"] if item.get("type") == "message" and not item.get("read")]), 1)
+        second_client.get(f"/messages/conversation/{first}")
+        opened_record = sudana.load_users()[second]
+        self.assertTrue(all(item["read"] for item in opened_record["messages"][-2:]))
+        self.assertFalse(any(item.get("type") == "message" and not item.get("read") for item in opened_record["notifications"]))
+        first_client.post(f"/messages/send/{second}", data={"message": "Read while open"})
+        open_record = sudana.load_users()[second]
+        self.assertTrue(open_record["messages"][-1]["read"])
+        self.assertFalse(any(item.get("type") == "message" and not item.get("read") for item in open_record["notifications"]))
+
+    def test_update_views_are_unique_private_and_owner_is_not_counted(self):
+        owner = self.create_verified()
+        self.client.post("/updates/create", data={"text": "My temporary Update"})
+        update_id = sudana.load_users()[owner]["updates"][-1]["id"]
+        self.client.get("/logout")
+        viewer = self.create_verified(username="", contact="viewer@example.com", first_name="No", last_name="Username")
+        self.client.get("/logout")
+        outsider = self.create_verified(username="outsider", contact="outsider@example.com")
+
+        users = sudana.load_users()
+        users[owner].setdefault("geez", []).append(viewer)
+        users[viewer].setdefault("geez", []).append(owner)
+        sudana.save_users(users)
+        owner_client = sudana.app.test_client()
+        viewer_client = sudana.app.test_client()
+        outsider_client = sudana.app.test_client()
+        self.login_as(owner_client, owner)
+        self.login_as(viewer_client, viewer)
+        self.login_as(outsider_client, outsider)
+
+        self.assertEqual(viewer_client.get(f"/updates/{owner}/{update_id}").status_code, 200)
+        self.assertEqual(viewer_client.post(f"/updates/{owner}/{update_id}/view").status_code, 200)
+        self.assertEqual(viewer_client.post(f"/updates/{owner}/{update_id}/view").status_code, 200)
+        self.assertEqual(owner_client.post(f"/updates/{owner}/{update_id}/view").get_json()["counted"], False)
+        self.assertEqual(owner_client.get(f"/updates/{owner}/{update_id}/view-data").get_json()["count"], 1)
+        viewer_page = owner_client.get(f"/updates/{owner}/{update_id}/viewers")
+        self.assertIn(b"No Username", viewer_page.data)
+        self.assertEqual(outsider_client.get(f"/updates/{owner}/{update_id}/viewers").status_code, 403)
+        self.assertEqual(outsider_client.post(f"/updates/{owner}/{update_id}/view").status_code, 403)
+
+    def test_expired_update_removes_private_view_records(self):
+        owner = self.create_verified()
+        self.client.post("/updates/create", data={"text": "Expiring"})
+        self.client.get("/logout")
+        viewer = self.create_verified(username="viewer", contact="viewer@example.com")
+        users = sudana.load_users()
+        update = users[owner]["updates"][-1]
+        users[owner].setdefault("geez", []).append(viewer)
+        users[viewer].setdefault("geez", []).append(owner)
+        sudana.save_users(users)
+        viewer_client = sudana.app.test_client()
+        owner_client = sudana.app.test_client()
+        self.login_as(viewer_client, viewer)
+        self.login_as(owner_client, owner)
+        viewer_client.post(f"/updates/{owner}/{update['id']}/view")
+        users = sudana.load_users()
+        users[owner]["updates"][-1]["expires_at"] = (datetime.now() - timedelta(seconds=1)).isoformat()
+        sudana.save_users(users)
+        self.assertEqual(owner_client.get(f"/updates/{owner}/{update['id']}/view-data").status_code, 410)
+        with sudana.closing(sudana.database()) as connection:
+            count = connection.execute("SELECT COUNT(*) FROM update_views WHERE update_id = ?", (update["id"],)).fetchone()[0]
+        self.assertEqual(count, 0)
 
 
 if __name__ == "__main__":

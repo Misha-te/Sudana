@@ -30,7 +30,7 @@ from werkzeug.utils import secure_filename
 from markupsafe import Markup, escape
 
 from database import session_scope
-from models import AccountState
+from models import AccountState, Update as UpdateModel, UpdateView, User as UserModel
 
 app = Flask(__name__)
 # Needed to keep users logged in. For a real deployment use a random secret.
@@ -91,8 +91,21 @@ NAME_PATTERN = re.compile(r"^[A-Za-z ]+$")
 def database():
     os.makedirs(os.path.dirname(DATABASE_FILE) or ".", exist_ok=True)
     connection = sqlite3.connect(DATABASE_FILE, timeout=10)
+    connection.execute("PRAGMA foreign_keys=ON")
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, data TEXT NOT NULL)")
+    connection.execute(
+        """CREATE TABLE IF NOT EXISTS update_views (
+            id TEXT PRIMARY KEY,
+            update_id TEXT NOT NULL,
+            owner_username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+            viewer_username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+            first_viewed_at TEXT NOT NULL,
+            last_viewed_at TEXT NOT NULL,
+            UNIQUE(update_id, viewer_username)
+        )"""
+    )
+    connection.execute("CREATE INDEX IF NOT EXISTS ix_local_update_views_update ON update_views(update_id)")
     return connection
 
 
@@ -325,6 +338,154 @@ def message_time_parts(value):
     else:
         label = sent_at.strftime("%B %-d, %Y")
     return {"date_label": label, "time_label": sent_at.strftime("%-I:%M %p")}
+
+
+def conversation_is_open(user, peer_username):
+    """Return whether a recent poll confirms this conversation is on screen."""
+    try:
+        return datetime.fromisoformat(user.get("open_conversations", {}).get(peer_username, "")) > datetime.now()
+    except (TypeError, ValueError):
+        return False
+
+
+def touch_open_conversation(user, peer_username):
+    """Refresh a short-lived open-chat heartbeat without keeping stale state alive."""
+    now = datetime.now()
+    open_conversations = user.setdefault("open_conversations", {})
+    for peer, expires_at in list(open_conversations.items()):
+        try:
+            if datetime.fromisoformat(expires_at) <= now:
+                open_conversations.pop(peer, None)
+        except (TypeError, ValueError):
+            open_conversations.pop(peer, None)
+    current = open_conversations.get(peer_username, "")
+    try:
+        if datetime.fromisoformat(current) > now + timedelta(seconds=5):
+            return False
+    except (TypeError, ValueError):
+        pass
+    open_conversations[peer_username] = (now + timedelta(seconds=12)).isoformat(timespec="seconds")
+    return True
+
+
+def serialize_message(users, message, viewer_username):
+    """Return the safe fields used by the polling conversation client."""
+    time_parts = message_time_parts(message.get("created_at"))
+    sender = users.get(message.get("sender"), {})
+    payload = {
+        "id": message.get("id"),
+        "sender": message.get("sender"),
+        "sender_name": display_name(sender) or identity_label(sender),
+        "text": message.get("text", ""),
+        "created_at": message.get("created_at", ""),
+        "date_label": time_parts["date_label"],
+        "time_label": time_parts["time_label"],
+        "status": message.get("status", "read" if message.get("read") else "sent"),
+        "mine": message.get("sender") == viewer_username,
+    }
+    if message.get("shared_post_id"):
+        author, post = locate_post(users, message["shared_post_id"])
+        payload["shared_post_id"] = message["shared_post_id"]
+        if post:
+            payload["shared_post"] = {
+                "id": post["id"],
+                "text": post.get("text", ""),
+                "author_name": display_name(author),
+                "url": url_for("view_post", post_id=post["id"]),
+            }
+    return payload
+
+
+def update_is_expired(update):
+    expires_at = update.get("expires_at")
+    if not expires_at:
+        return False
+    try:
+        return datetime.fromisoformat(expires_at) <= datetime.now()
+    except (TypeError, ValueError):
+        return False
+
+
+def ensure_relational_user(db_session, account):
+    """Mirror an account-state identity needed by normalized Update viewer rows."""
+    account_key = account["username"]
+    user = db_session.query(UserModel).filter(UserModel.username == account_key).one_or_none()
+    if user:
+        return user
+    try:
+        dob = date.fromisoformat(account.get("date_of_birth") or account.get("dob") or "")
+    except (TypeError, ValueError):
+        dob = date(1900, 1, 1)
+    user = UserModel(
+        username=account_key,
+        first_name=account.get("first_name") or "Sudana",
+        middle_name=account.get("middle_name") or None,
+        last_name=account.get("last_name") or "Member",
+        display_name=account.get("display_name") or None,
+        email=account.get("email") or None,
+        phone=account.get("phone") or None,
+        password_hash=account.get("password_hash") or generate_password_hash(secrets.token_urlsafe(24)),
+        gender=account.get("gender") or "Prefer not to say",
+        date_of_birth=dob,
+        hometown=account.get("hometown") or None,
+        current_location=account.get("current_location") or None,
+        home_country=account.get("home_country") or None,
+        is_south_sudanese=account.get("is_south_sudanese", True),
+        bio=account.get("bio") or "",
+        category=account.get("category") or "",
+        is_active=account.get("is_active", True),
+    )
+    db_session.add(user)
+    db_session.flush()
+    return user
+
+
+def ensure_relational_update(db_session, owner, update):
+    """Mirror Update content so UpdateView can use enforced foreign keys."""
+    owner_row = ensure_relational_user(db_session, owner)
+    update_row = db_session.get(UpdateModel, update["id"])
+    if not update_row:
+        try:
+            created_at = datetime.fromisoformat(update.get("created_at", ""))
+        except (TypeError, ValueError):
+            created_at = datetime.now()
+        try:
+            expires_at = datetime.fromisoformat(update.get("expires_at", "")) if update.get("expires_at") else None
+        except (TypeError, ValueError):
+            expires_at = None
+        update_row = UpdateModel(
+            id=update["id"],
+            user_id=owner_row.id,
+            text=update.get("text", ""),
+            image_url=update.get("image_filename") or None,
+            created_at=created_at,
+            expires_at=expires_at,
+        )
+        db_session.add(update_row)
+        db_session.flush()
+    return update_row
+
+
+def purge_update_views(update_id):
+    """Remove private viewer history when an Update expires or is removed."""
+    if USE_POSTGRES:
+        with session_scope() as db_session:
+            db_session.query(UpdateView).filter(UpdateView.update_id == update_id).delete()
+        return
+    with closing(database()) as connection:
+        connection.execute("DELETE FROM update_views WHERE update_id = ?", (update_id,))
+        connection.commit()
+
+
+def update_view_count(owner, update):
+    if USE_POSTGRES:
+        with session_scope() as db_session:
+            ensure_relational_update(db_session, owner, update)
+            return db_session.query(UpdateView).filter(UpdateView.update_id == update["id"]).count()
+    with closing(database()) as connection:
+        return connection.execute(
+            "SELECT COUNT(*) FROM update_views WHERE update_id = ?", (update["id"],)
+        ).fetchone()[0]
 
 
 # ---------- Profile photo helpers ----------
@@ -747,7 +908,10 @@ def dashboard():
         owner = users.get(name)
         if not owner or not owner.get("updates"):
             continue
-        latest = owner["updates"][-1]
+        active_updates = [item for item in owner["updates"] if not update_is_expired(item)]
+        if not active_updates:
+            continue
+        latest = active_updates[-1]
         updates.append({"username": name, "name": "Your Update" if name == user["username"] else f"{owner['first_name']}'s Update",
                         "initial": owner["first_name"][0].upper(), "photo_url": photo_url_for(name), "update_id": latest["id"]})
     return render_template(
@@ -781,11 +945,19 @@ def create_update():
             image.save(os.path.join(app.config["UPDATE_UPLOAD_FOLDER"], filename))
     if text or filename:
         users = load_users()
-        users[viewer["username"]].setdefault("updates", []).append({
-            "id": uuid.uuid4().hex, "text": text, "image_filename": filename,
-            "created_at": datetime.now().isoformat(timespec="seconds")
-        })
+        now = datetime.now()
+        update = {
+            "id": uuid.uuid4().hex,
+            "text": text,
+            "image_filename": filename,
+            "created_at": now.isoformat(timespec="microseconds"),
+            "expires_at": (now + timedelta(hours=24)).isoformat(timespec="seconds"),
+        }
+        users[viewer["username"]].setdefault("updates", []).append(update)
         save_users(users)
+        if USE_POSTGRES:
+            with session_scope() as db_session:
+                ensure_relational_update(db_session, users[viewer["username"]], update)
     return redirect(url_for("dashboard"))
 
 
@@ -801,8 +973,159 @@ def view_update(username, update_id):
     update = next((item for item in owner.get("updates", []) if item.get("id") == update_id), None)
     if not update:
         return redirect(url_for("dashboard"))
+    if update_is_expired(update):
+        purge_update_views(update_id)
+        return redirect(url_for("dashboard"))
     image_url = url_for("static", filename=f"uploads/updates/{update['image_filename']}") if update.get("image_filename") else None
-    return render_template("update_view.html", owner=owner, owner_name=display_name(owner), update=update, image_url=image_url)
+    is_owner = username == viewer["username"]
+    viewer_count = update_view_count(owner, update) if is_owner else None
+    return render_template(
+        "update_view.html",
+        owner=owner,
+        owner_name=display_name(owner),
+        update=update,
+        image_url=image_url,
+        is_owner=is_owner,
+        viewer_count=viewer_count,
+    )
+
+
+@app.route("/updates/<username>/<update_id>/view", methods=["POST"])
+def record_update_view(username, update_id):
+    """Record one authenticated, authorized viewer without exposing the list."""
+    viewer = current_user()
+    if not viewer:
+        return jsonify(ok=False), 401
+    users = load_users()
+    owner = users.get(username)
+    if not owner:
+        abort(404)
+    if username != viewer["username"] and username not in viewer.get("geez", []):
+        abort(403)
+    update = next((item for item in owner.get("updates", []) if item.get("id") == update_id), None)
+    if not update:
+        abort(404)
+    if update_is_expired(update):
+        purge_update_views(update_id)
+        return jsonify(ok=False, expired=True), 410
+    if username == viewer["username"]:
+        return jsonify(ok=True, counted=False)
+
+    now = datetime.now()
+    if USE_POSTGRES:
+        with session_scope() as db_session:
+            update_row = ensure_relational_update(db_session, owner, update)
+            viewer_row = ensure_relational_user(db_session, users[viewer["username"]])
+            view = db_session.query(UpdateView).filter(
+                UpdateView.update_id == update_row.id,
+                UpdateView.viewer_id == viewer_row.id,
+            ).one_or_none()
+            if view:
+                view.last_viewed_at = now
+            else:
+                db_session.add(UpdateView(
+                    update_id=update_row.id,
+                    viewer_id=viewer_row.id,
+                    first_viewed_at=now,
+                    last_viewed_at=now,
+                ))
+    else:
+        viewed_at = now.isoformat(timespec="microseconds")
+        with closing(database()) as connection:
+            connection.execute(
+                """INSERT INTO update_views(
+                       id, update_id, owner_username, viewer_username, first_viewed_at, last_viewed_at
+                   ) VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(update_id, viewer_username)
+                   DO UPDATE SET last_viewed_at = excluded.last_viewed_at""",
+                (uuid.uuid4().hex, update_id, username, viewer["username"], viewed_at, viewed_at),
+            )
+            connection.commit()
+    return jsonify(ok=True, counted=True)
+
+
+def update_viewer_rows(users, owner, update):
+    """Build the private, presentation-safe viewer list for an Update owner."""
+    rows = []
+    if USE_POSTGRES:
+        with session_scope() as db_session:
+            update_row = ensure_relational_update(db_session, owner, update)
+            records = db_session.query(UpdateView, UserModel).join(
+                UserModel, UpdateView.viewer_id == UserModel.id
+            ).filter(UpdateView.update_id == update_row.id).order_by(
+                UpdateView.first_viewed_at.desc()
+            ).all()
+            raw_rows = [(user.username, view.last_viewed_at) for view, user in records]
+    else:
+        with closing(database()) as connection:
+            raw_rows = connection.execute(
+                """SELECT viewer_username, last_viewed_at FROM update_views
+                   WHERE update_id = ? ORDER BY first_viewed_at DESC""",
+                (update["id"],),
+            ).fetchall()
+    for viewer_username, viewed_at in raw_rows:
+        person = users.get(viewer_username)
+        if not person:
+            continue
+        chosen_username = person.get("chosen_username")
+        if chosen_username is None and not person.get("username_auto"):
+            chosen_username = person.get("username")
+        viewer_identity = (
+            f"@{chosen_username}" if chosen_username
+            else " ".join(part for part in (person.get("first_name"), person.get("last_name")) if part)
+        ) or "Sudana member"
+        if isinstance(viewed_at, str):
+            try:
+                viewed_at = datetime.fromisoformat(viewed_at)
+            except ValueError:
+                viewed_at = None
+        rows.append({
+            "username": viewer_username,
+            "identity": viewer_identity,
+            "secondary_name": display_name(person) if chosen_username else "",
+            "photo_url": photo_url_for(viewer_username),
+            "initial": (person.get("first_name") or "S")[0].upper(),
+            "viewed_at": viewed_at.strftime("%b %-d at %-I:%M %p") if viewed_at else "",
+        })
+    return rows
+
+
+@app.route("/updates/<username>/<update_id>/view-data")
+def update_view_data(username, update_id):
+    """Return only the owner's live count; viewer identities stay private."""
+    viewer = current_user()
+    if not viewer:
+        return jsonify(ok=False), 401
+    if viewer["username"] != username:
+        abort(403)
+    users = load_users()
+    owner = users.get(username)
+    update = next((item for item in (owner or {}).get("updates", []) if item.get("id") == update_id), None)
+    if not owner or not update:
+        abort(404)
+    if update_is_expired(update):
+        purge_update_views(update_id)
+        return jsonify(ok=False, expired=True), 410
+    return jsonify(ok=True, count=update_view_count(owner, update))
+
+
+@app.route("/updates/<username>/<update_id>/viewers")
+def update_viewers(username, update_id):
+    viewer = current_user()
+    if not viewer:
+        return redirect(url_for("login"))
+    if viewer["username"] != username:
+        abort(403)
+    users = load_users()
+    owner = users.get(username)
+    update = next((item for item in (owner or {}).get("updates", []) if item.get("id") == update_id), None)
+    if not owner or not update:
+        abort(404)
+    if update_is_expired(update):
+        purge_update_views(update_id)
+        abort(410)
+    viewers = update_viewer_rows(users, owner, update)
+    return render_template("update_viewers.html", update=update, viewers=viewers)
 
 
 @app.route("/create-post", methods=["POST"])
@@ -1317,6 +1640,8 @@ def open_notification(notice_id):
         return redirect(url_for("dashboard", _anchor=f"post-{notice.get('post_id')}"))
     if notice.get("type") == "geez_request":
         return redirect(url_for("my_geez", _anchor="received-requests"))
+    if notice.get("type") == "message":
+        return redirect(url_for("conversation", username=notice.get("actor_username")))
     return redirect(url_for("profile", name=notice.get("actor_username")))
 
 
@@ -1559,7 +1884,7 @@ def conversation(username):
         return redirect(url_for("messages"))
     record = users[viewer["username"]]
     thread = []
-    changed = False
+    changed = touch_open_conversation(record, username)
     for message in record.get("messages", []):
         participants = {message.get("sender"), message.get("recipient")}
         if participants == {viewer["username"], username}:
@@ -1568,8 +1893,13 @@ def conversation(username):
                 message["read"] = True
                 message_status(users, message.get("id"), "read")
                 changed = True
+    for notice in record.get("notifications", []):
+        if notice.get("type") == "message" and notice.get("actor_username") == username and not notice.get("read"):
+            notice["read"] = True
+            changed = True
     if changed:
         save_users(users)
+    thread.sort(key=lambda item: (item.get("created_at", ""), item.get("id", "")))
     for message in thread:
         message.update(message_time_parts(message.get("created_at")))
         message.setdefault("status", "read" if message.get("read") else "delivered")
@@ -1589,25 +1919,71 @@ def conversation(username):
 @app.route("/messages/send/<username>", methods=["POST"])
 def send_message(username):
     viewer = current_user()
+    wants_json = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.accept_mimetypes.best == "application/json"
     if not viewer:
+        if wants_json:
+            return jsonify(ok=False, error="Please log in again."), 401
         return redirect(url_for("login"))
     users = load_users()
     recipient = users.get(username)
     text, flagged = moderate_text(request.form.get("message", "").strip())
-    if recipient and text and username != viewer["username"]:
-        if viewer["username"] not in active_blocked_usernames(recipient) and username not in active_blocked_usernames(viewer):
-            if viewer["username"] in recipient.get("declined_message_requests", []) and not conversation_is_accepted(recipient, viewer["username"]):
-                flash("This person is not accepting new message requests from you.", "comment-error")
-                return redirect(url_for("conversation", username=username))
-            message = {
-                "id": uuid.uuid4().hex, "sender": viewer["username"], "recipient": username,
-                "text": text, "flagged": flagged, "created_at": datetime.now().isoformat(timespec="seconds"),
-                "read": False, "request": not conversation_is_accepted(recipient, viewer["username"]), "status": "sent",
-            }
-            recipient.setdefault("messages", []).append(message)
-            sender_copy = dict(message, read=True, request=False, status="sent")
-            users[viewer["username"]].setdefault("messages", []).append(sender_copy)
-            save_users(users)
+    error = None
+    if not recipient or username == viewer["username"]:
+        error = "That conversation is unavailable."
+    elif not text:
+        error = "Enter a message before sending."
+    elif viewer["username"] in active_blocked_usernames(recipient) or username in active_blocked_usernames(viewer):
+        error = "This conversation is unavailable."
+    elif viewer["username"] in recipient.get("declined_message_requests", []) and not conversation_is_accepted(recipient, viewer["username"]):
+        error = "This person is not accepting new message requests from you."
+
+    if error:
+        if wants_json:
+            return jsonify(ok=False, error=error), 403 if "not accepting" in error or "unavailable" in error else 400
+        flash(error, "comment-error")
+        return redirect(url_for("conversation", username=username))
+
+    recipient_has_chat_open = conversation_is_open(recipient, viewer["username"])
+    status = "read" if recipient_has_chat_open else "sent"
+    message = {
+        "id": uuid.uuid4().hex,
+        "sender": viewer["username"],
+        "recipient": username,
+        "text": text,
+        "flagged": flagged,
+        "created_at": datetime.now().isoformat(timespec="microseconds"),
+        "read": recipient_has_chat_open,
+        "request": not conversation_is_accepted(recipient, viewer["username"]),
+        "status": status,
+    }
+    recipient.setdefault("messages", []).append(message)
+    sender_copy = dict(message, read=True, request=False, status=status)
+    users[viewer["username"]].setdefault("messages", []).append(sender_copy)
+    users[viewer["username"]].setdefault("typing", {}).pop(username, None)
+    if not recipient_has_chat_open:
+        now = datetime.now()
+        notice = next((item for item in recipient.get("notifications", [])
+                       if item.get("type") == "message"
+                       and item.get("actor_username") == viewer["username"]
+                       and not item.get("read")), None)
+        notice_data = {
+            "message_id": message["id"],
+            "created_at": now.isoformat(timespec="microseconds"),
+            "created_label": now.strftime("%b %d, %Y at %-I:%M %p"),
+        }
+        if notice:
+            notice.update(notice_data)
+        else:
+            recipient.setdefault("notifications", []).append({
+                "id": uuid.uuid4().hex,
+                "type": "message",
+                "actor_username": viewer["username"],
+                "read": False,
+                **notice_data,
+            })
+    save_users(users)
+    if wants_json:
+        return jsonify(ok=True, message=serialize_message(users, sender_copy, viewer["username"])), 201
     return redirect(url_for("conversation", username=username))
 
 
@@ -1672,6 +2048,58 @@ def typing_status(username):
     except ValueError:
         active = False
     return jsonify(typing=active, name=peer.get("first_name", username))
+
+
+@app.route("/messages/conversation/<username>/events")
+def conversation_events(username):
+    """Short-poll feed for new messages, statuses, typing, and read receipts."""
+    viewer = current_user()
+    if not viewer:
+        return jsonify(ok=False, messages=[]), 401
+    users = load_users()
+    peer = users.get(username)
+    if not peer:
+        return jsonify(ok=False, messages=[]), 404
+    record = users[viewer["username"]]
+    changed = touch_open_conversation(record, username)
+    thread = []
+    for message in record.get("messages", []):
+        if {message.get("sender"), message.get("recipient")} != {viewer["username"], username}:
+            continue
+        thread.append(message)
+        if message.get("sender") == username and not message.get("read"):
+            message["read"] = True
+            message_status(users, message.get("id"), "read")
+            changed = True
+    for notice in record.get("notifications", []):
+        if notice.get("type") == "message" and notice.get("actor_username") == username and not notice.get("read"):
+            notice["read"] = True
+            changed = True
+    if changed:
+        save_users(users)
+    thread.sort(key=lambda item: (item.get("created_at", ""), item.get("id", "")))
+    try:
+        peer_typing = datetime.fromisoformat(peer.get("typing", {}).get(viewer["username"], "")) > datetime.now()
+    except (TypeError, ValueError):
+        peer_typing = False
+    return jsonify(
+        ok=True,
+        messages=[serialize_message(users, item, viewer["username"]) for item in thread],
+        typing=peer_typing,
+        typing_name=peer.get("first_name") or identity_label(peer),
+    )
+
+
+@app.route("/messages/conversation/<username>/close", methods=["POST"])
+def close_conversation(username):
+    viewer = current_user()
+    if not viewer:
+        return jsonify(ok=False), 401
+    users = load_users()
+    users[viewer["username"]].setdefault("open_conversations", {}).pop(username, None)
+    users[viewer["username"]].setdefault("typing", {}).pop(username, None)
+    save_users(users)
+    return jsonify(ok=True)
 
 
 @app.route("/messages/status/<username>")

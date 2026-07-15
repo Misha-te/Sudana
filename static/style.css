@@ -65,6 +65,7 @@ body {
 .message-composer { display:flex; gap:.55rem; position:sticky; bottom:78px; background:white; padding:.75rem; border-radius:14px; box-shadow:0 3px 18px rgba(0,0,0,.1); }
 .message-composer input { margin:0; }
 .message-composer button, .comment-send { width:42px; border:0; border-radius:50%; background:#0f47af; color:white; cursor:pointer; }
+.message-composer button:disabled { opacity:.55; cursor:wait; }
 .section-heading, .blocked-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
 .add-block-button { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:#0f47af; color:white; text-decoration:none; font-size:1.5rem; }
 .add-block-button.inline { flex:0 0 34px; }
@@ -88,6 +89,15 @@ body {
 .update-content { min-height:75vh; display:grid; place-items:center; padding:1rem; }
 .update-content img { max-width:min(100%,700px); max-height:70vh; object-fit:contain; }
 .update-content p { font-size:clamp(1.5rem,5vw,3rem); text-align:center; max-width:700px; }
+.update-view-footer { position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:center; padding:1rem 1rem calc(1rem + env(safe-area-inset-bottom)); background:linear-gradient(transparent,rgba(0,0,0,.9)); }
+.update-view-footer a { display:inline-flex; align-items:center; min-height:44px; padding:.55rem 1rem; border-radius:999px; background:rgba(255,255,255,.14); color:white; text-decoration:none; font-weight:700; }
+.update-viewer-list { margin-top:1rem; }
+.update-viewer-row { display:flex; align-items:center; gap:.8rem; min-height:64px; padding:.7rem .15rem; border-bottom:1px solid #e5e7eb; color:#111827; text-decoration:none; }
+.update-viewer-avatar { flex:0 0 46px; width:46px; height:46px; display:grid; place-items:center; border-radius:50%; background:#dbeafe center/cover no-repeat; color:#0f47af; font-weight:800; }
+.update-viewer-row > span:last-child { display:flex; flex-direction:column; min-width:0; }
+.update-viewer-row small, .update-viewer-row time { color:#64748b; font-size:.78rem; }
+.dark .update-viewer-row { color:#f1f5f9; border-color:#263548; }
+.dark .update-viewer-row small, .dark .update-viewer-row time { color:#aebed1; }
 
 /* Complete application theme coverage. */
 .dark body, .dark .app-body, .dark .form-page { background:#071023; color:#e6eef8; }
