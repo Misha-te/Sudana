@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from contextlib import closing
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from email.message import EmailMessage
 
 from flask import (
@@ -35,6 +35,17 @@ from models import AccountState, Update as UpdateModel, UpdateView, User as User
 app = Flask(__name__)
 # Needed to keep users logged in. For a real deployment use a random secret.
 app.secret_key = os.environ.get("SECRET_KEY", "sudana-dev-secret-key")
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.environ.get("FLASK_ENV") == "production",
+)
+
+TERMS_VERSION = "2026-07-15"
+PRIVACY_VERSION = "2026-07-15"
+LEGAL_EFFECTIVE_DATE = "July 15, 2026"
+SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "").strip()
+GOVERNING_LAW = os.environ.get("GOVERNING_LAW", "").strip()
 
 # Where uploaded profile pictures are stored, and which file types we allow
 UPLOAD_FOLDER = os.path.join("static", "uploads")
@@ -719,6 +730,27 @@ def home():
     return render_template("index.html")
 
 
+@app.route("/terms")
+def terms():
+    return render_template(
+        "terms.html",
+        version=TERMS_VERSION,
+        effective_date=LEGAL_EFFECTIVE_DATE,
+        support_email=SUPPORT_EMAIL,
+        governing_law=GOVERNING_LAW,
+    )
+
+
+@app.route("/privacy")
+def privacy():
+    return render_template(
+        "privacy.html",
+        version=PRIVACY_VERSION,
+        effective_date=LEGAL_EFFECTIVE_DATE,
+        support_email=SUPPORT_EMAIL,
+    )
+
+
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
@@ -734,6 +766,7 @@ def signup():
         hometown = request.form.get("hometown", "").strip()
         current_location = request.form.get("current_location", "").strip()
         dob = request.form.get("dob", "")
+        legal_consent = request.form.get("legal_consent") == "accepted"
         users = load_users()
         errors = []
         if not first_name:
@@ -776,11 +809,14 @@ def signup():
                     )
             except ValueError:
                 errors.append("Please enter a valid date of birth.")
+        if not legal_consent:
+            errors.append("You must agree to the Terms and Conditions and Privacy Policy to create an account.")
         if errors:
             return render_template("signup.html", errors=errors, first_name=first_name,
                                    middle_name=middle_name, last_name=last_name, username=username,
                                    contact=contact, gender=gender, hometown=hometown,
-                                   current_location=current_location, dob=dob)
+                                   current_location=current_location, dob=dob,
+                                   legal_consent=legal_consent)
         account_key = make_account_key(username)
         record = {
             "first_name": first_name, "middle_name": middle_name, "last_name": last_name,
@@ -792,6 +828,12 @@ def signup():
             "current_location": current_location, "home_country": "", "is_south_sudanese": True,
             "bio": "", "category": "", "geez": [], "pending_sent": [], "notifications": [],
             "messages": [], "blocked": [], "posts": [], "photo_permission": False, "is_active": False,
+            "legal_acceptance": {
+                "accepted_at": datetime.now(timezone.utc).isoformat(),
+                "terms_version": TERMS_VERSION,
+                "privacy_version": PRIVACY_VERSION,
+                "method": "signup_checkbox",
+            },
         }
         try:
             dev_code = set_one_time_code(record, "verification_code", "account verification")
@@ -800,13 +842,14 @@ def signup():
             return render_template("signup.html", errors=errors, first_name=first_name,
                                    middle_name=middle_name, last_name=last_name, username=username,
                                    contact=contact, gender=gender, hometown=hometown,
-                                   current_location=current_location, dob=dob)
+                                   current_location=current_location, dob=dob,
+                                   legal_consent=legal_consent)
         users[account_key] = record
         save_users(users)
         session["pending_verification"] = account_key
         session["dev_verification_code"] = dev_code if os.environ.get("FLASK_ENV") != "production" else None
         return redirect(url_for("verify_account"))
-    return render_template("signup.html", errors=[])
+    return render_template("signup.html", errors=[], legal_consent=False)
 
 
 @app.route("/verify-account", methods=["GET", "POST"])

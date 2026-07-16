@@ -8,8 +8,10 @@
 <label>Username <small>(Optional)</small><input name="username" value="{{ username or '' }}" autocomplete="username"><small class="hint">If left blank, Sudana displays your first and last name.</small></label>
 <label>Phone number or email <span class="required-star">*</span><input name="contact" value="{{ contact or '' }}" required autocomplete="email" placeholder="you@example.com or +211..."></label>
 <label>Password <span class="required-star">*</span><input type="password" name="password" minlength="8" required autocomplete="new-password"><small class="hint">At least 8 characters.</small></label>
+<label class="consent-box"><input type="checkbox" name="legal_consent" value="accepted" required {% if legal_consent %}checked{% endif %}><span>I have read and agree to the <a href="{{ url_for('terms') }}" target="_blank" rel="noopener">Terms and Conditions</a> and <a href="{{ url_for('privacy') }}" target="_blank" rel="noopener">Privacy Policy</a>. <span class="required-star">*</span></span></label>
+{% if 'You must agree to the Terms and Conditions and Privacy Policy to create an account.' in errors %}<p class="field-error">You must accept both documents before creating an account.</p>{% endif %}
 <label>Gender <span class="required-star">*</span><select name="gender" required><option value="">Select gender</option>{% for item in ['Male','Female','Other','Prefer not to say'] %}<option {{ 'selected' if gender == item }}>{{ item }}</option>{% endfor %}</select></label>
 <label>Hometown<input name="hometown" value="{{ hometown or '' }}"></label>
 <label>Current location<input name="current_location" value="{{ current_location or '' }}"></label>
 <label>Date of birth <span class="required-star">*</span><input type="date" name="dob" value="{{ dob or '' }}" required></label>
-<button class="cta form-submit">Continue</button></form><p class="subtitle"><a href="{{ url_for('login') }}">Already have an account? Log in</a></p></section></main></body></html>
+<button class="cta form-submit">Continue</button></form><p class="subtitle"><a href="{{ url_for('login') }}">Already have an account? Log in</a></p></section></main><footer class="footer">{% include '_legal_links.html' %}<p>&copy; 2026 Sudana.</p></footer></body></html>

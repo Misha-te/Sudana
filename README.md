@@ -55,6 +55,8 @@ You can log in with a username, email address, or phone number.
 * Email-or-phone signup with six-digit account verification
 * Expiring, attempt-limited verification and password-reset codes
 * Complete password-reset flow; passwords remain securely hashed
+* Required signup agreement to versioned Terms and Conditions and Privacy Policy
+* UTC consent timestamp and accepted document versions stored with each new account
 
 ### 📝 Profiles
 
@@ -170,6 +172,12 @@ The name workflow collects required first and last names plus an optional middle
 
 The account menu links to a mobile-friendly support center with short account-creation and problem-reporting articles. Signed-in users can submit a title, app area, description, optional device information, and an optional validated screenshot up to 3 MB. Reports and attachments are stored in PostgreSQL and receive a confirmation screen.
 
+### ⚖️ Legal and consent
+
+Sudana provides separate, publicly accessible Terms and Conditions and Privacy Policy pages. Signup links open each document in a new tab so entered form data remains in place. The server rejects signup unless the required agreement checkbox is selected, then stores the UTC acceptance time, Terms version, Privacy version, and `signup_checkbox` method in the PostgreSQL-backed account record.
+
+The current legal version is `2026-07-15`. The documents accurately disclose the 16+ requirement, collected account/social/support information, essential session cookie and local preferences, password hashing, PostgreSQL storage, Render infrastructure, message storage, Update viewer privacy, lack of behavioral analytics, development code display, retention limitations, and planned—but not yet implemented—self-service account deletion.
+
 ### 💎 Premium
 
 Premium remains visible as **Coming soon**. Payments, subscriptions, and incomplete payment pages are not enabled.
@@ -234,7 +242,10 @@ Sudana/
 │   ├── profile.html
 │   ├── conversation.html
 │   ├── update_view.html
-│   └── update_viewers.html
+│   ├── update_viewers.html
+│   ├── terms.html
+│   ├── privacy.html
+│   └── _legal_links.html
 │
 └── README.md
 ```
@@ -304,6 +315,7 @@ in your browser.
 ## 📸 Current Functionality
 
 * Create an account
+* Review public Terms and Privacy pages and provide required versioned signup consent
 * Log in and log out
 * Edit profile information
 * Upload profile photos
@@ -342,7 +354,9 @@ static/uploads/updates/
 
 For the first PostgreSQL deployment, set `IMPORT_LEGACY_ON_EMPTY=true` and run `python migrate_legacy_data.py` after `alembic upgrade head`. The importer refuses to run when PostgreSQL already contains account records and never modifies the SQLite/JSON source. Set the flag back to `false` after a successful import.
 
-Stored data includes profiles, MyGeez connections and requests, notifications, messages and message requests, posts, comments, reactions, blocks, Updates, unique Update views, support reports, and account settings. Theme preferences are stored in the browser. Existing social routes currently use PostgreSQL-backed `account_states` compatibility records while normalized models are adopted incrementally. `UpdateView` is a normalized table with foreign keys to `updates` and `users`, a unique `(update_id, viewer_id)` constraint, and first/last-viewed timestamps.
+Stored data includes profiles, MyGeez connections and requests, notifications, messages and message requests, posts, comments, reactions, blocks, Updates, unique Update views, support reports, account settings, and versioned legal-acceptance records. Theme preferences are stored in the browser. Existing social routes currently use PostgreSQL-backed `account_states` compatibility records while normalized models are adopted incrementally. `UpdateView` is a normalized table with foreign keys to `updates` and `users`, a unique `(update_id, viewer_id)` constraint, and first/last-viewed timestamps.
+
+Consent currently uses the existing PostgreSQL account payload, so it requires no destructive schema migration. Each new account contains a `legal_acceptance` object with `accepted_at`, `terms_version`, `privacy_version`, and `method`. Existing accounts are not silently marked as having accepted the new versions.
 
 Deleting a normalized Update or viewer account cascades its viewer records. New Updates expire after 24 hours; expired Updates are hidden and their private viewer records are purged when expiration is encountered. The owner viewing their own Update is never counted.
 
@@ -358,6 +372,8 @@ Deleting a normalized Update or viewer account cascades its viewer records. New 
 * Support screenshots are currently stored in PostgreSQL for portability; object storage is recommended as usage grows
 * The local compatibility path can still use SQLite for development and legacy import; production requires `DATABASE_URL`
 * Cross-device browser testing and a live PostgreSQL restart test still need to be run against Render after migration `0002_update_views` is applied
+* Self-service account deletion and data export are not yet implemented; users must contact support for assistance
+* The legal operating entity, governing law, public legal-contact email, detailed retention schedule, and jurisdiction-specific rights must be finalized with qualified counsel before full production launch
 
 ---
 
@@ -403,6 +419,8 @@ Deleting a normalized Update or viewer account cascades its viewer records. New 
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` | SMS delivery | Sends phone verification/reset codes |
 | `DEV_DATABASE_URL` | Optional local tooling | SQLAlchemy development database when `DATABASE_URL` is absent |
 | `SUDANA_DATABASE` | Legacy/local only | SQLite compatibility/import file location |
+| `SUPPORT_EMAIL` | Recommended production setting | Public legal and privacy contact shown in the policies |
+| `GOVERNING_LAW` | Required before full launch | Governing jurisdiction displayed in the Terms |
 
 Do not commit production secrets. Console verification is rejected in production unless a delivery provider is configured.
 
@@ -457,7 +475,7 @@ Run the automated suite with:
 python -m unittest discover -s tests -v
 ```
 
-The current suite covers signup and verification rules, password reset, posts/comments/reactions/sharing, MyG duplicate prevention, persisted messages, live message events and ordering, typing shutdown, open/closed unread behavior, Update viewer uniqueness, owner-only viewer authorization, no-username display, expired-view cleanup, support uploads, and the disabled dating route.
+The current suite covers signup and verification rules, required/versioned legal consent, public legal pages, password reset, posts/comments/reactions/sharing, MyG duplicate prevention, persisted messages, live message events and ordering, typing shutdown, open/closed unread behavior, Update viewer uniqueness, owner-only viewer authorization, no-username display, expired-view cleanup, support uploads, and the disabled dating route.
 
 Manual message and Update checklist:
 
@@ -474,7 +492,9 @@ Manual message and Update checklist:
 
 ## 🔐 Security and privacy
 
-Passwords use Werkzeug hashing and are never recoverable as plain text. Secrets and provider credentials come from environment variables. Update viewer identities are protected by server-side owner authorization, not only a hidden button. Viewer responses do not include email, phone, birth date, or other private account fields. Uploaded report files are restricted by extension, safe filename, and size. Production account and viewer data is stored in PostgreSQL.
+Passwords use Werkzeug hashing and are never recoverable as plain text. Signed session cookies are HTTP-only and SameSite=Lax, and become Secure in production. Secrets and provider credentials come from environment variables. Update viewer identities are protected by server-side owner authorization, not only a hidden button. Viewer responses do not include email, phone, birth date, or other private account fields. Uploaded report files are restricted by extension, safe filename, and size. Production account and viewer data is stored in PostgreSQL.
+
+The legal documents are project-specific drafts, not a substitute for advice from a qualified lawyer. Before production launch, review them for the operating entity’s jurisdiction and every location where Sudana offers service.
 
 ## 🤝 Contributing
 

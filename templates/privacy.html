@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="description" content="Privacy Policy for Sudana.">
+    <title>Privacy Policy | Sudana</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="{{ url_for('static', filename='theme.js') }}"></script>
+</head>
+<body class="legal-page">
+    <header class="legal-header">
+        <a class="legal-brand" href="{{ url_for('home') }}">Sudana</a>
+        <a href="{{ url_for('signup') }}">Create account</a>
+    </header>
+    <main class="legal-document">
+        <header class="legal-title">
+            <p class="legal-kicker">Sudana legal</p>
+            <h1>Privacy Policy</h1>
+            <p><strong>Effective:</strong> {{ effective_date }} · <strong>Version:</strong> {{ version }}</p>
+        </header>
+
+        <section>
+            <h2>1. Scope and summary</h2>
+            <p>This Privacy Policy explains how the Sudana project team collects, uses, stores, and shares information when you use Sudana. Sudana is a social networking platform for South Sudanese communities and the wider diaspora. Sudana does not sell personal information and does not currently operate an advertising or behavioral-analytics system.</p>
+        </section>
+
+        <section>
+            <h2>2. Information you provide</h2>
+            <h3>Account and profile information</h3>
+            <p>Depending on the information you choose to provide and the features you use, Sudana stores:</p>
+            <ul>
+                <li>First name, last name, optional middle name, and optional username;</li>
+                <li>Email address or phone number;</li>
+                <li>Date of birth, gender, hometown, current location, and, for applicable profiles, home country;</li>
+                <li>Profile photograph, biography, account category, and display name;</li>
+                <li>Password hash, account-verification state, password-reset state, and legal-consent record; and</li>
+                <li>Settings such as blocks and profile-photo permission state.</li>
+            </ul>
+
+            <h3>Content and social activity</h3>
+            <p>Sudana stores posts, post media, comments, reactions, shared-post references, Updates, Update media, unique Update-view records, MyG connections and requests, notifications, messages, message requests, timestamps, delivery/read state, and short-lived typing or open-conversation state.</p>
+
+            <h3>Support information</h3>
+            <p>When you report a problem, Sudana stores the title, description, affected area, submission time, account identifier, optional screenshot, and any device or browser information you choose to type into the form. Sudana does not automatically fill that optional device field.</p>
+        </section>
+
+        <section>
+            <h2>3. Cookies, local storage, and technical information</h2>
+            <p>Sudana uses an essential signed Flask session cookie to keep you signed in and maintain account workflows. The cookie is configured as HTTP-only and SameSite=Lax, and as Secure in production. Sudana also uses browser local storage for theme preference and a local profile-photo permission preference.</p>
+            <p>The Sudana application does not intentionally save your IP address or browser user-agent in your account record and does not currently install advertising or analytics trackers. Render and other infrastructure providers may process routine technical request information, such as IP address, request time, or browser headers, to deliver, secure, and troubleshoot their hosting services under their own terms.</p>
+        </section>
+
+        <section>
+            <h2>4. How Sudana uses information</h2>
+            <ul>
+                <li>Create, verify, authenticate, and maintain accounts;</li>
+                <li>Display profiles and provide posts, comments, reactions, sharing, Updates, MyGs, search, and blocking;</li>
+                <li>Deliver messages, message requests, notifications, timestamps, and read state;</li>
+                <li>Show Update owners who viewed their Update;</li>
+                <li>Apply content moderation and investigate suspected abuse, fraud, security incidents, or Terms violations;</li>
+                <li>Respond to support reports and troubleshoot errors;</li>
+                <li>Protect users, enforce platform rules, and maintain system integrity; and</li>
+                <li>Understand and improve Sudana using support feedback and operational information. Sudana does not currently maintain a product-analytics dashboard.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>5. Password and code security</h2>
+            <p>Passwords are never stored in plain text. Sudana uses Werkzeug to hash passwords before storage. Sudana administrators cannot view or recover your original password; password recovery replaces it with a new hashed password.</p>
+            <p>Verification and password-reset codes expire, have attempt limits, and are invalidated after successful use. In local development mode, test codes may be shown on screen and in server logs. Production delivery requires configured email or SMS credentials; Sudana does not claim that an unconfigured provider sends codes.</p>
+        </section>
+
+        <section>
+            <h2>6. Who can see information</h2>
+            <ul>
+                <li>Profile information and public posts can be visible to other Sudana users.</li>
+                <li>Post visibility controls may limit content to you or selected MyGs.</li>
+                <li>Messages are visible to conversation participants and are stored by Sudana; they are not represented as end-to-end encrypted.</li>
+                <li>An Update owner can privately see the identity and viewing time of authenticated users who viewed that Update. Other users cannot open that viewer list.</li>
+                <li>Support reports can be accessed by authorized project maintainers who need them to respond or troubleshoot.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>7. Data sharing</h2>
+            <p>Sudana does not sell personal information. Information may be shared only as reasonably necessary:</p>
+            <ul>
+                <li>With hosting and database providers, currently including Render, to operate Sudana;</li>
+                <li>With an email or SMS provider when those services are configured and needed to deliver a code;</li>
+                <li>With a third-party service you deliberately select, such as opening a WhatsApp share link;</li>
+                <li>To comply with a valid legal obligation or lawful request; or</li>
+                <li>To investigate fraud or abuse, protect a person from harm, defend legal rights, or secure the platform.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>8. Storage and retention</h2>
+            <p>Production account and social data is stored in PostgreSQL. Uploaded profile photos, post media, and Update media are currently stored in application upload directories, which require persistent or cloud storage for reliable production retention. Support screenshot data is currently stored with the PostgreSQL-backed account report.</p>
+            <p>Sudana retains information only as long as reasonably necessary to provide the service, comply with legal obligations, resolve disputes, investigate abuse, and maintain security. Exact retention periods have not yet been finalized. New Updates are hidden after 24 hours, but automated removal of all expired Update records and media is still under development. Messages, support reports, and other account information may remain until removed through an available feature or handled through a support request.</p>
+        </section>
+
+        <section>
+            <h2>9. Your choices and rights</h2>
+            <p>Sudana currently lets users update profile information, change names through password confirmation, change passwords, adjust applicable location information, manage temporary blocks, choose post visibility, and delete their own posts and notifications. Available rights may vary by location.</p>
+            <p>Self-service account deletion and data export are not yet implemented. They are planned features. Until then, contact Sudana through Support from our team to ask a privacy question or request assistance concerning account data. Sudana will evaluate requests according to applicable law and available verification methods.</p>
+        </section>
+
+        <section>
+            <h2>10. Security</h2>
+            <p>Current protections include password hashing, signed session-based authentication, HTTP-only and SameSite session-cookie settings, production Secure cookies, PostgreSQL credentials and application secrets supplied through environment variables, server-side validation, expiring verification/reset codes, and HTTPS provided by the production hosting platform.</p>
+            <p>No internet service can guarantee absolute security. Users should choose a strong unique password, protect account codes, and report suspected account misuse. Sudana’s security controls and incident-response procedures remain under active development.</p>
+        </section>
+
+        <section>
+            <h2>11. Children’s privacy</h2>
+            <p>Sudana is intended only for users who are at least 16 years old. The signup process rejects a date of birth showing that a person is younger than 16. If Sudana learns that an underage account was created, the project team may restrict the account and remove associated information as appropriate.</p>
+        </section>
+
+        <section>
+            <h2>12. Changes to this Privacy Policy</h2>
+            <p>This policy may change as Sudana adds features, service providers, or privacy controls. The effective date and version will be updated. Significant changes may be communicated in the app or through available account contact information, and renewed consent may be requested when appropriate.</p>
+        </section>
+
+        <section>
+            <h2>13. Contact</h2>
+            {% if support_email %}<p>Privacy questions can be sent to <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>{% else %}<p>Signed-in users can submit privacy questions through <a href="{{ url_for('support') }}">Support from our team</a>. A public privacy-contact email still needs to be configured before full production launch.</p>{% endif %}
+        </section>
+    </main>
+    <footer class="footer legal-footer">
+        {% include '_legal_links.html' %}
+        <p>&copy; 2026 Sudana.</p>
+    </footer>
+</body>
+</html>

@@ -22,7 +22,8 @@ class SudanaFlowsTest(unittest.TestCase):
     def signup_data(self, **changes):
         data = {"first_name":"Amina", "middle_name":"Nyamal", "last_name":"Deng",
                 "username":"amina", "contact":"amina@example.com", "password":"password1",
-                "gender":"Female", "hometown":"Juba", "current_location":"Chicago", "dob":"2000-01-01"}
+                "gender":"Female", "hometown":"Juba", "current_location":"Chicago", "dob":"2000-01-01",
+                "legal_consent":"accepted"}
         data.update(changes)
         return data
 
@@ -42,6 +43,33 @@ class SudanaFlowsTest(unittest.TestCase):
     def test_required_signup_fields(self):
         response = self.client.post("/signup", data={})
         self.assertIn(b"Please enter your first name", response.data)
+
+    def test_public_legal_pages_and_links(self):
+        terms = self.client.get("/terms")
+        privacy = self.client.get("/privacy")
+        self.assertEqual(terms.status_code, 200)
+        self.assertEqual(privacy.status_code, 200)
+        self.assertIn(b"You must be at least 16", terms.data)
+        self.assertIn(b"does not sell personal information", privacy.data)
+        self.assertIn(b"Self-service account deletion", privacy.data)
+        self.assertIn(b"/terms", self.client.get("/").data)
+        signup = self.client.get("/signup")
+        self.assertIn(b'target="_blank"', signup.data)
+        self.assertIn(b"Privacy Policy", signup.data)
+
+    def test_signup_requires_and_records_versioned_legal_consent(self):
+        without_consent = self.signup_data()
+        without_consent.pop("legal_consent")
+        response = self.client.post("/signup", data=without_consent)
+        self.assertIn(b"must agree to the Terms and Conditions", response.data)
+        self.assertEqual(sudana.load_users(), {})
+
+        key = self.create_verified()
+        acceptance = sudana.load_users()[key]["legal_acceptance"]
+        self.assertEqual(acceptance["terms_version"], sudana.TERMS_VERSION)
+        self.assertEqual(acceptance["privacy_version"], sudana.PRIVACY_VERSION)
+        self.assertEqual(acceptance["method"], "signup_checkbox")
+        self.assertIsNotNone(datetime.fromisoformat(acceptance["accepted_at"]).tzinfo)
 
     def test_optional_middle_name_and_username(self):
         key = self.create_verified(middle_name="", username="", contact="+15551234567")
